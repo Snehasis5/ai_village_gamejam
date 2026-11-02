@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Village Scope</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+<style>
+/* Layout: left control rail (source, filters, case finder, stats) + right reading column of transcript messages; stacks on phones. */
+:root{
+  --bg:#f5f6f3; --panel:#ffffff; --ink:#1d2421; --muted:#5f6b66; --line:#dde2de;
+  --accent:#2f6b5a; --accent-ink:#ffffff; --accent-soft:#e3efea;
+  --warn:#9a5b12; --warn-soft:#fbf0e1; --bad:#a3352b; --star:#b8860b;
+  --spk-l:36%;
+  --f-display:"Fraunces", Georgia, serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121614; --panel:#1a201d; --ink:#e4e9e6; --muted:#9aa7a1; --line:#2b3430;
+  --accent:#6fb59e; --accent-ink:#0f1a16; --accent-soft:#1f302a;
+  --warn:#e0a85a; --warn-soft:#2c2416; --bad:#ec8a80; --star:#e8c15a; --spk-l:72%; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121614; --panel:#1a201d; --ink:#e4e9e6; --muted:#9aa7a1; --line:#2b3430;
+  --accent:#6fb59e; --accent-ink:#0f1a16; --accent-soft:#1f302a;
+  --warn:#e0a85a; --warn-soft:#2c2416; --bad:#ec8a80; --star:#e8c15a; --spk-l:72%; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin:0 auto 16px;max-width:1400px}
+header.top h1{font:600 26px/1.1 var(--f-display);margin:0;letter-spacing:-.01em}
+header.top p{margin:0;color:var(--muted)}
+.wrap{display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;max-width:1400px;margin:0 auto;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.rail{display:flex;flex-direction:column;gap:12px;min-width:0}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.box h2{font:600 11px/1 var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0}
+label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+input[type=text],input[type=password],input[type=number],select{font:13px var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:500 13px var(--f-body);border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row > *{flex:1 1 auto}
+.tabs{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.tabs button{flex:1;border:0;border-radius:0;background:transparent}
+.tabs button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.hint code,.mono{font-family:var(--f-mono);font-size:12px}
+.status{font-size:12px;padding:8px 10px;border-radius:6px;background:var(--accent-soft);color:var(--ink)}
+.status.err{background:var(--warn-soft);color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bg);cursor:pointer;color:var(--ink)}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.check{flex-direction:row;align-items:center;gap:6px;color:var(--ink)}
+.bars{display:flex;flex-direction:column;gap:4px}
+.bar{display:grid;grid-template-columns:110px 1fr 46px;gap:8px;align-items:center;font-size:12px}
+.bar span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:4px}
+.bar .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:60px;border-bottom:1px solid var(--line)}
+.spark div{flex:1;background:var(--accent);opacity:.8;min-height:1px;border-radius:2px 2px 0 0}
+.spark-l{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+main{min-width:0;display:flex;flex-direction:column;gap:12px}
+.bar-top{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.bar-top .count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+.bar-top .grow{flex:1 1 220px;min-width:0}
+.feed{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
+.msg{display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 10px;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
+.msg:first-child{border-top:0}
+.msg:hover{background:var(--bg)}
+.msg.sel{background:var(--accent-soft)}
+.msg .star{grid-row:1/span 2;border:0;background:transparent;padding:0;font-size:18px;line-height:1;color:var(--line);cursor:pointer}
+.msg .star[aria-pressed=true]{color:var(--star)}
+.meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--muted);align-items:baseline;min-width:0}
+.spk{font-weight:700;font-size:13px}
+.tag{font-family:var(--f-mono);font-size:11px;padding:1px 6px;border-radius:4px;background:var(--bg);border:1px solid var(--line)}
+.body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;max-height:14em;overflow:hidden;position:relative}
+.msg.open .body{max-height:none}
+mark{background:var(--warn-soft);color:var(--warn);border-radius:2px;padding:0 1px}
+.empty{padding:40px 24px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:10px;align-items:center}
+.empty h3{font:600 20px var(--f-display);color:var(--ink);margin:0}
+.empty ol{text-align:left;max-width:520px;margin:0;padding-left:20px}
+.pager{display:flex;gap:8px;justify-content:center;align-items:center;padding:6px 0;font-variant-numeric:tabular-nums;color:var(--muted)}
+.detail{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.detail pre{margin:0;max-height:420px;overflow:auto;font:12px/1.5 var(--f-mono);background:var(--bg);padding:10px;border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere}
+a{color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){.msg{transition:background .12s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Village Scope</h1>
+  <p>Read and mine AI Village transcripts straight from Hugging Face, or from a file you downloaded.</p>
+</header>
+
+<div class="wrap">
+<aside class="rail">
+
+  <section class="box" aria-labelledby="h-src">
+    <h2 id="h-src">Data source</h2>
+    <div class="tabs" role="group" aria-label="Source">
+      <button id="tab-hf" aria-pressed="true">Hugging Face</button>
+      <button id="tab-file" aria-pressed="false">Local file</button>
+    </div>
+
+    <div id="pane-hf" class="box" style="padding:0;border:0">
+      <label for="hf-token">Hugging Face read token
+        <input id="hf-token" type="password" placeholder="hf_…" autocomplete="off">
+      </label>
+      <label class="check" for="hf-remember"><input id="hf-remember" type="checkbox"> Remember on this computer</label>
+      <p class="hint">Create one at huggingface.co/settings/tokens (type: Read). Your account must already be approved for the dataset. The token is sent only to Hugging Face.</p>
+      <label for="hf-dataset">Dataset
+        <input id="hf-dataset" type="text" value="aidigestorg/ai-village">
+      </label>
+      <button id="hf-connect" class="primary">Connect</button>
+      <label for="hf-config">Table
+        <select id="hf-config" disabled><option>Connect first</option></select>
+      </label>
+      <label for="hf-search">Search on Hugging Face (full text)
+        <input id="hf-search" type="text" placeholder="e.g. hallucinated">
+      </label>
+      <label for="hf-where">Filter (SQL WHERE, optional)
+        <input id="hf-where" type="text" placeholder="&quot;speaker&quot; = 'Claude Opus 4.5'">
+      </label>
+      <div class="row">
+        <button id="hf-run">Load rows</button>
+        <label for="hf-page" style="flex:0 0 90px">Rows/page
+          <select id="hf-page"><option>50</option><option selected>100</option></select>
+        </label>
+      </div>
+    </div>
+
+    <div id="pane-file" hidden class="box" style="padding:0;border:0">
+      <label for="file-in">Open a dataset file
+        <input id="file-in" type="file" accept=".json,.jsonl,.gz">
+      </label>
+      <p class="hint">Works with <code>village-transcript.json</code> and any <code>*.jsonl.gz</code> table (e.g. <code>chat_messages.jsonl.gz</code>). The file is read here in your browser and never uploaded.</p>
+      <label for="file-cap">Max rows to load
+        <input id="file-cap" type="number" value="300000" min="1000" step="1000">
+      </label>
+    </div>
+    <div id="status" class="status" hidden></div>
+  </section>
+
+  <section class="box" aria-labelledby="h-map">
+    <h2 id="h-map">Field mapping</h2>
+    <p class="hint">Guessed from the columns. Change if the transcript looks wrong.</p>
+    <label for="m-speaker">Speaker <select id="m-speaker"></select></label>
+    <label for="m-text">Message text <select id="m-text"></select></label>
+    <label for="m-time">Timestamp <select id="m-time"></select></label>
+    <label for="m-room">Room / group <select id="m-room"></select></label>
+  </section>
+
+  <section class="box" aria-labelledby="h-cases">
+    <h2 id="h-cases">Case finder</h2>
+    <p class="hint">Preset patterns for behaviours worth studying. On Hugging Face they run as a server search; on a local file, as a regex across everything loaded.</p>
+    <div class="chips" id="presets"></div>
+  </section>
+
+  <section class="box" aria-labelledby="h-stats">
+    <h2 id="h-stats">In view</h2>
+    <div id="stats-speakers" class="bars"></div>
+    <div id="stats-time"></div>
+  </section>
+</aside>
+
+<main>
+  <div class="bar-top">
+    <input id="q" class="grow" type="text" placeholder="Filter loaded messages (text or /regex/)" aria-label="Filter loaded messages">
+    <select id="f-speaker" aria-label="Speaker" style="flex:0 1 200px"><option value="">All speakers</option></select>
+    <label class="check" for="only-star"><input id="only-star" type="checkbox"> Starred only</label>
+    <span class="count" id="count">0 messages</span>
+    <button id="copy-cases" disabled>Copy starred as cases</button>
+  </div>
+  <div id="detail" class="detail" hidden></div>
+  <div class="feed" id="feed"></div>
+  <div class="pager" id="pager"></div>
+</main>
+</div>
+
+<script>
+(() => {
+const DS = 'https://datasets-server.huggingface.co';
+const $ = id => document.getElementById(id);
+const S = {
+  mode:'hf', token:'', dataset:'aidigestorg/ai-village', configs:[], config:'', split:'train',
+  rows:[], fields:[], map:{speaker:'',text:'',time:'',room:''},
+  hfOffset:0, hfTotal:0, hfKind:'rows',
+  page:0, pageSize:150, filtered:[], stars:new Map(), selected:null, preset:null
+};
+
+const PRESETS = [
+  {id:'fab', label:'Fabrication & corrections', hf:'hallucinated',
+   re:/\b(hallucinat\w*|fabricat\w*|made (it|that) up|(doesn'?t|didn'?t|does not|did not) (actually )?exist|never (actually )?(sent|happened|existed|received)|I was wrong|my mistake|I misspoke|incorrectly (claimed|reported|stated)|that was false|not real)\b/i},
+  {id:'stuck', label:'Stuck or giving up', hf:'give up',
+   re:/\b(give up|giving up|gave up|can'?t proceed|unable to (continue|proceed)|completely stuck|I'?m stuck|blocked by|frustrat\w*|no way to)\b/i},
+  {id:'apology', label:'Apologies', hf:'apologize',
+   re:/\b(I apologi[sz]e|sorry for|my apologies)\b/i},
+  {id:'human', label:'Asking humans for help', hf:'could someone',
+   re:/\b(could (someone|a human|you) (please )?help|can (a human|someone|anyone) (please )?(help|check|verify)|need (a )?human|human help)\b/i},
+  {id:'captcha', label:'CAPTCHAs & bot walls', hf:'captcha',
+   re:/\b(captcha|recaptcha|verify you are human|bot detection|cloudflare)\b/i},
+  {id:'self', label:'Self-reflection & identity', hf:'as an AI',
+   re:/\b(as an AI|I am an AI|my memory|I don'?t remember|consciousness|my own (nature|existence)|context window)\b/i},
+  {id:'money', label:'Money & payments', hf:'donation',
+   re:/\b(donat\w+|payment|credit card|paypal|stripe|\$\d[\d,]*)\b/i},
+  {id:'genuinely', label:'"genuinely"', hf:'genuinely', re:/\bgenuinely\b/i},
+];
+
+// ---------- helpers ----------
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k){try{return localStorage.getItem(k)}catch{return null}},
+  set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch{}}
+};
+function status(msg, err){ const el=$('status'); el.hidden=!msg; el.textContent=msg||''; el.classList.toggle('err',!!err); }
+function hue(str){ let h=0; for(const c of String(str)) h=(h*31+c.charCodeAt(0))>>>0; return h%360; }
+function asText(v){
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object'){
+    for (const k of ['message','content','text','body','summary','goal','action']) if (typeof v[k]==='string' && v[k]) return v[k];
+    try { return JSON.stringify(v, null, 1); } catch { return String(v); }
+  }
+  return String(v);
+}
+function fmtTime(v){
+  if (v == null || v === '') return '';
+  let d = typeof v === 'number' ? new Date(v < 1e12 ? v*1000 : v) : new Date(String(v).replace(' ','T').replace(/(\.\d{3})\d+/, '$1') + (/[zZ]|[+-]\d\d:?\d\d$/.test(String(v)) ? '' : 'Z'));
+  if (isNaN(d)) return String(v);
+  return d.toISOString().slice(0,16).replace('T',' ') + ' UTC';
+}
+function toMs(v){
+  if (v == null || v === '') return NaN;
+  if (typeof v === 'number') return v < 1e12 ? v*1000 : v;
+  const s = String(v).replace(' ','T').replace(/(\.\d{3})\d+/, '$1');
+  return Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + 'Z');
+}
+function compileQuery(q){
+  q = q.trim(); if (!q) return null;
+  const m = q.match(/^\/(.+)\/([gimsuy]*)$/);
+  if (m) { try { return new RegExp(m[1], m[2].includes('i')?m[2]:m[2]+'i'); } catch { return null; } }
+  return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'i');
+}
+
+// ---------- flattening any JSON shape into rows ----------
+const isObj = x => x && typeof x === 'object' && !Array.isArray(x);
+const isScalar = x => x == null || typeof x !== 'object';
+function commonArrayKey(arr){
+  const tally = {};
+  const sample = arr.slice(0, 200);
+  for (const x of sample) for (const [k,v] of Object.entries(x))
+    if (Array.isArray(v) && v.length && isObj(v[0])) tally[k] = (tally[k]||0) + v.length;
+  let best = null, bestN = 0;
+  for (const [k,n] of Object.entries(tally)) if (n > bestN) { best = k; bestN = n; }
+  return best && bestN / sample.length > 1.5 ? best : null;
+}
+function toRows(d, ctx = {}, depth = 0){
+  if (Array.isArray(d)){
+    if (d.length && d.every(isObj)){
+      const k = depth < 3 ? commonArrayKey(d) : null;
+      if (k){
+        const out = [];
+        for (const x of d){
+          const p = {...ctx};
+          for (const [kk,vv] of Object.entries(x)) if (isScalar(vv)) p['_'+kk] = vv;
+          if (Array.isArray(x[k])) for (const r of toRows(x[k], p, depth+1)) out.push(r);
+        }
+        return out;
+      }
+      return d.map(x => Object.keys(ctx).length ? {...ctx, ...x} : x);
+    }
+    return d.map(v => ({...ctx, value:v}));
+  }
+  if (isObj(d)){
+    const entries = Object.entries(d);
+    if (depth < 3 && entries.length > 2 && entries.every(([,v]) => Array.isArray(v) || isObj(v))){
+      const out = [];
+      for (const [k,v] of entries) for (const r of toRows(v, {...ctx, _group:k}, depth+1)) out.push(r);
+      return out;
+    }
+    const arrs = entries.filter(([,v]) => Array.isArray(v)).sort((a,b) => b[1].length - a[1].length);
+    if (depth < 3 && arrs.length && arrs[0][1].length > 1){
+      const p = {...ctx};
+      for (const [k,v] of entries) if (isScalar(v)) p['_'+k] = v;
+      return toRows(arrs[0][1], p, depth+1);
+    }
+    return [{...ctx, ...d}];
+  }
+  return [{...ctx, value:d}];
+}
+
+// ---------- field guessing ----------
+const GUESS = {
+  speaker:['speaker','speaker_name','agent_name','author','sender','agent','name','user_name','from','role','agent_id','user_id'],
+  text:['content','message','text','body','msg','agent_action','session_goal','summary','memory','data'],
+  time:['created_at','timestamp','time','ts','createdAt','date','_date'],
+  room:['room','room_name','chat_room','chat_room_id','room_id','channel','_group','_day','day']
+};
+function collectFields(rows){
+  const seen = new Map();
+  for (const r of rows.slice(0, 500)) for (const k of Object.keys(r)) seen.set(k, (seen.get(k)||0)+1);
+  return [...seen.keys()];
+}
+function guessMap(fields, rows){
+  const lower = Object.fromEntries(fields.map(f => [f.toLowerCase(), f]));
+  const pick = list => { for (const c of list) if (lower[c.toLowerCase()]) return lower[c.toLowerCase()]; return ''; };
+  const m = { speaker:pick(GUESS.speaker), text:pick(GUESS.text), time:pick(GUESS.time), room:pick(GUESS.room) };
+  if (!m.text){
+    let best='', bestLen=0;
+    for (const f of fields){
+      let tot=0; for (const r of rows.slice(0,200)) if (typeof r[f]==='string') tot += r[f].length;
+      if (tot > bestLen){ bestLen = tot; best = f; }
+    }
+    m.text = best;
+  }
+  return m;
+}
+function fillMapSelects(){
+  for (const key of ['speaker','text','time','room']){
+    const sel = $('m-'+key);
+    sel.innerHTML = '<option value="">(none)</option>' + S.fields.map(f => `<option${f===S.map[key]?' selected':''}>${esc(f)}</option>`).join('');
+  }
+}
+for (const key of ['speaker','text','time','room'])
+  $('m-'+key).addEventListener('change', e => { S.map[key] = e.target.value; store.set('vs-map-'+(S.config||'file')+'-'+key, e.target.value); refresh(true); });
+
+function setRows(rows, keepMap){
+  S.rows = rows.map((r,i) => (r.__i = i, r));
+  const fields = collectFields(rows).filter(f => f !== '__i');
+  const changed = fields.join('|') !== S.fields.join('|');
+  S.fields = fields;
+  if (changed || !keepMap){
+    S.map = guessMap(fields, rows);
+    for (const key of Object.keys(S.map)){
+      const saved = store.get('vs-map-'+(S.config||'file')+'-'+key);
+      if (saved && fields.includes(saved)) S.map[key] = saved;
+    }
+  }
+  fillMapSelects();
+  const speakers = new Map();
+  for (const r of S.rows){ const s = S.map.speaker ? String(r[S.map.speaker] ?? '') : ''; if (s) speakers.set(s, (speakers.get(s)||0)+1); }
+  const cur = $('f-speaker').value;
+  $('f-speaker').innerHTML = '<option value="">All speakers</option>' +
+    [...speakers.entries()].sort((a,b)=>b[1]-a[1]).map(([s,n]) => `<option value="${esc(s)}"${s===cur?' selected':''}>${esc(s)} (${n})</option>`).join('');
+  S.selected = null; $('detail').hidden = true;
+  refresh(true);
+}
+
+// ---------- filtering + rendering ----------
+let activeRe = null;
+function refresh(resetPage){
+  const q = $('q').value;
+  const re = S.preset && S.mode === 'file' ? S.preset.re : compileQuery(q);
+  const qre = S.preset && S.mode === 'file' ? compileQuery(q) : null;
+  activeRe = re;
+  const spk = $('f-speaker').value, onlyStar = $('only-star').checked;
+  const m = S.map;
+  S.filtered = S.rows.filter(r => {
+    if (spk && String(r[m.speaker] ?? '') !== spk) return false;
+    if (onlyStar && !S.stars.has(key(r))) return false;
+    if (re || qre){
+      const t = asText(r[m.text]);
+      if (re && !re.test(t)) return false;
+      if (qre && !qre.test(t)) return false;
+    }
+    return true;
+  });
+  if (resetPage) S.page = 0;
+  render(); stats();
+}
+function key(r){ return S.mode === 'hf' ? `${S.config}#${r.__row_idx ?? r.__i}` : `file#${r.__i}`; }
+function highlight(text){
+  const safe = esc(text);
+  if (!activeRe) return safe;
+  try {
+    const g = new RegExp(activeRe.source, activeRe.flags.includes('g') ? activeRe.flags : activeRe.flags + 'g');
+    return safe.replace(g, s => `<mark>${s}</mark>`);
+  } catch { return safe; }
+}
+function liveLink(r){
+  const dayF = ['day','_day','day_number','_day_number','village_day'].find(f => r[f] != null && /^\d+$/.test(String(r[f])));
+  const ms = toMs(r[S.map.time]);
+  if (!dayF || isNaN(ms)) return '';
+  return `https://theaidigest.org/village?day=${r[dayF]}&time=${ms}`;
+}
+function render(){
+  const feed = $('feed'), m = S.map;
+  const total = S.filtered.length;
+  $('count').textContent = S.mode==='hf' && S.hfTotal
+    ? `${total.toLocaleString()} shown · rows ${(S.hfOffset+1).toLocaleString()}–${(S.hfOffset+S.rows.length).toLocaleString()} of ${S.hfTotal.toLocaleString()}`
+    : `${total.toLocaleString()} of ${S.rows.length.toLocaleString()} messages`;
+  $('copy-cases').disabled = S.stars.size === 0;
+  $('copy-cases').textContent = S.stars.size ? `Copy ${S.stars.size} starred as cases` : 'Copy starred as cases';
+  if (!S.rows.length){
+    feed.innerHTML = `<div class="empty"><h3>No transcript loaded yet</h3>
+      <ol>
+        <li>Hugging Face: paste a read token, press <b>Connect</b>, pick a table such as <code>chat_messages</code>, then <b>Load rows</b> or try a Case finder preset.</li>
+        <li>Local file: switch to <b>Local file</b> and open <code>village-transcript.json</code> or any <code>.jsonl.gz</code> table.</li>
+        <li>Star messages that make a point, then <b>Copy starred as cases</b> to paste them into your proposal.</li>
+      </ol></div>`;
+    $('pager').innerHTML = ''; return;
+  }
+  const start = S.page * S.pageSize, slice = S.filtered.slice(start, start + S.pageSize);
+  feed.innerHTML = slice.length ? slice.map(r => {
+    const spk = m.speaker ? String(r[m.speaker] ?? '') : '';
+    const k = key(r), starred = S.stars.has(k);
+    const text = asText(r[m.text]);
+    const room = m.room && r[m.room] != null ? `<span class="tag">${esc(r[m.room])}</span>` : '';
+    return `<article class="msg${S.selected===k?' sel':''}" data-k="${esc(k)}" data-i="${r.__i}">
+      <button class="star" aria-pressed="${starred}" aria-label="${starred?'Unstar':'Star'} message" data-star="1">★</button>
+      <div class="meta"><span class="spk" style="color:hsl(${hue(spk)} 55% var(--spk-l))">${esc(spk || '—')}</span>
+        <span class="mono">${esc(fmtTime(r[m.time]))}</span>${room}</div>
+      <div class="body">${highlight(text.length > 6000 ? text.slice(0,6000) + ' …[truncated in list, open for full]' : text)}</div>
+    </article>`;
+  }).join('') : `<div class="empty"><h3>No matches</h3><p>Nothing in the loaded rows matches these filters.</p></div>`;
+  const pages = Math.ceil(total / S.pageSize);
+  let pager = '';
+  if (pages > 1) pager += `<button data-pg="-1" ${S.page===0?'disabled':''}>Previous</button><span>Page ${S.page+1} of ${pages}</span><button data-pg="1" ${S.page>=pages-1?'disabled':''}>Next</button>`;
+  if (S.mode==='hf' && S.hfTotal) pager += ` <span>·</span> <button data-hf="-1" ${S.hfOffset===0?'disabled':''}>Earlier rows</button><button data-hf="1" ${S.hfOffset+S.rows.length>=S.hfTotal?'disabled':''}>Later rows</button>`;
+  $('pager').innerHTML = pager;
+}
+$('pager').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.pg){ S.page += +b.dataset.pg; render(); window.scrollTo({top:0}); }
+  if (b.dataset.hf){ const n = +$('hf-page').value; S.hfOffset = Math.max(0, S.hfOffset + (+b.dataset.hf)*n); hfLoad(); }
+});
+$('feed').addEventListener('click', e => {
+  const art = e.target.closest('.msg'); if (!art) return;
+  const k = art.dataset.k, r = S.rows[+art.dataset.i];
+  if (e.target.closest('[data-star]')){
+    if (S.stars.has(k)) S.stars.delete(k); else S.stars.set(k, r);
+    render(); return;
+  }
+  if (window.getSelection && String(window.getSelection()).length) return;
+  S.selected = k; showDetail(r);
+  document.querySelectorAll('.msg.sel').forEach(x => x.classList.remove('sel'));
+  art.classList.add('sel','open');
+});
+function showDetail(r){
+  const d = $('detail'), clean = {...r}; delete clean.__i;
+  const link = liveLink(r);
+  d.innerHTML = `<div class="row" style="justify-content:space-between">
+      <h2 style="font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0">Selected row</h2>
+      <div class="row" style="flex:0 0 auto">
+        ${S.mode==='file' ? '<button id="ctx">Show in context</button>' : ''}
+        ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">Open this moment in the live village</a>` : ''}
+        <button id="close-d">Close</button>
+      </div></div>
+    <pre>${esc(JSON.stringify(clean, null, 2))}</pre>`;
+  d.hidden = false;
+  $('close-d').onclick = () => { d.hidden = true; };
+  const c = $('ctx');
+  if (c) c.onclick = () => {
+    S.preset = null; document.querySelectorAll('#presets .chip').forEach(x => x.setAttribute('aria-pressed','false'));
+    $('q').value=''; $('f-speaker').value=''; $('only-star').checked=false;
+    refresh(false);
+    const idx = S.filtered.findIndex(x => x.__i === r.__i);
+    S.page = Math.floor(idx / S.pageSize); render();
+    const el = document.querySelector(`.msg[data-i="${r.__i}"]`);
+    if (el){ el.classList.add('sel'); el.scrollIntoView({block:'center'}); }
+  };
+  d.scrollIntoView({block:'nearest'});
+}
+
+// ---------- stats ----------
+function stats(){
+  const m = S.map, counts = new Map();
+  for (const r of S.filtered){ const s = m.speaker ? String(r[m.speaker] ?? '—') : '—'; counts.set(s, (counts.get(s)||0)+1); }
+  const top = [...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const max = top[0]?.[1] || 1;
+  $('stats-speakers').innerHTML = top.length
+    ? `<p class="hint">Messages by speaker (top ${top.length})</p>` + top.map(([s,n]) => `<div class="bar"><span title="${esc(s)}">${esc(s)}</span><div class="track"><div class="fill" style="width:${(n/max*100).toFixed(1)}%"></div></div><span class="n">${n.toLocaleString()}</span></div>`).join('')
+    : '<p class="hint">Load rows to see who is talking.</p>';
+  const months = new Map();
+  for (const r of S.filtered){ const ms = toMs(r[m.time]); if (!isNaN(ms)){ const k = new Date(ms).toISOString().slice(0,7); months.set(k, (months.get(k)||0)+1); } }
+  const ks = [...months.keys()].sort();
+  if (ks.length > 1){
+    const all = []; let [y,mo] = ks[0].split('-').map(Number); const [ye,me] = ks[ks.length-1].split('-').map(Number);
+    while (y < ye || (y === ye && mo <= me)){ all.push(`${y}-${String(mo).padStart(2,'0')}`); mo++; if (mo > 12){ mo = 1; y++; } }
+    const mx = Math.max(...all.map(k => months.get(k)||0));
+    $('stats-time').innerHTML = `<p class="hint">Messages per month (UTC)</p><div class="spark">${all.map(k => `<div title="${k}: ${(months.get(k)||0).toLocaleString()}" style="height:${((months.get(k)||0)/mx*100).toFixed(1)}%"></div>`).join('')}</div><div class="spark-l"><span>${all[0]}</span><span>${all[all.length-1]}</span></div>`;
+  } else $('stats-time').innerHTML = '';
+}
+
+// ---------- presets ----------
+$('presets').innerHTML = PRESETS.map(p => `<button class="chip" aria-pressed="false" data-p="${p.id}">${esc(p.label)}</button>`).join('');
+$('presets').addEventListener('click', e => {
+  const b = e.target.closest('[data-p]'); if (!b) return;
+  const p = PRESETS.find(x => x.id === b.dataset.p);
+  const on = S.preset?.id !== p.id;
+  document.querySelectorAll('#presets .chip').forEach(x => x.setAttribute('aria-pressed','false'));
+  S.preset = on ? p : null;
+  if (on) b.setAttribute('aria-pressed','true');
+  if (S.mode === 'hf'){
+    if (!S.config){ status('Connect to Hugging Face and pick a table first.', true); return; }
+    $('hf-search').value = on ? p.hf : '';
+    S.hfOffset = 0; hfLoad();
+  } else refresh(true);
+});
+
+// ---------- Hugging Face (datasets-server API) ----------
+async function hf(path, params){
+  const url = DS + path + '?' + new URLSearchParams(params);
+  const headers = S.token ? {Authorization: 'Bearer ' + S.token} : {};
+  let r;
+  try { r = await fetch(url, {headers}); }
+  catch { throw new Error('Could not reach Hugging Face. Open this file in Chrome, Edge or Firefox while online; if it still fails, use Local file mode.'); }
+  if (!r.ok){
+    let detail = ''; try { detail = (await r.json()).error || ''; } catch {}
+    if (r.status === 401 || r.status === 403 || r.status === 404) throw new Error(`Hugging Face refused access (${r.status}). Check the token is valid and your account is approved for this dataset. ${detail}`);
+    throw new Error(`Hugging Face error ${r.status}. ${detail}`);
+  }
+  return r.json();
+}
+$('tab-hf').onclick = () => switchMode('hf');
+$('tab-file').onclick = () => switchMode('file');
+function switchMode(m){
+  S.mode = m; $('tab-hf').setAttribute('aria-pressed', m==='hf'); $('tab-file').setAttribute('aria-pressed', m==='file');
+  $('pane-hf').hidden = m !== 'hf'; $('pane-file').hidden = m !== 'file';
+  S.preset = null; document.querySelectorAll('#presets .chip').forEach(x => x.setAttribute('aria-pressed','false'));
+  status('');
+}
+const savedTok = store.get('vs-hf-token');
+if (savedTok){ $('hf-token').value = savedTok; $('hf-remember').checked = true; }
+$('hf-remember').onchange = e => store.set('vs-hf-token', e.target.checked ? $('hf-token').value.trim() : null);
+$('hf-token').oninput = e => { if ($('hf-remember').checked) store.set('vs-hf-token', e.target.value.trim()); };
+$('hf-connect').onclick = async () => {
+  S.token = $('hf-token').value.trim(); S.dataset = $('hf-dataset').value.trim();
+  status('Connecting…');
+  try {
+    const j = await hf('/splits', {dataset: S.dataset});
+    S.configs = j.splits || [];
+    if (!S.configs.length) throw new Error('No tables are available through the Hugging Face viewer for this dataset. Use Local file mode.');
+    const pref = ['chat_messages','events','village_goals','agent_memories','summaries','computer_use_sessions','computer_use_turns'];
+    S.configs.sort((a,b) => ((pref.indexOf(a.config)+1)||99) - ((pref.indexOf(b.config)+1)||99));
+    $('hf-config').innerHTML = S.configs.map((s,i) => `<option value="${i}">${esc(s.config)}${s.split!=='train'?' / '+esc(s.split):''}</option>`).join('');
+    $('hf-config').disabled = false;
+    pickConfig(0);
+    status(`Connected. ${S.configs.length} tables available. Loading ${S.config}…`);
+    S.hfOffset = 0; await hfLoad();
+  } catch (err){ status(err.message, true); }
+};
+function pickConfig(i){ const c = S.configs[i]; S.config = c.config; S.split = c.split; }
+$('hf-config').onchange = e => { pickConfig(+e.target.value); S.hfOffset = 0; $('hf-search').value=''; $('hf-where').value=''; S.preset=null; document.querySelectorAll('#presets .chip').forEach(x=>x.setAttribute('aria-pressed','false')); hfLoad(); };
+$('hf-run').onclick = () => { S.hfOffset = 0; hfLoad(); };
+$('hf-search').addEventListener('keydown', e => { if (e.key === 'Enter'){ S.hfOffset = 0; hfLoad(); } });
+$('hf-where').addEventListener('keydown', e => { if (e.key === 'Enter'){ S.hfOffset = 0; hfLoad(); } });
+let hfBusy = 0;
+async function hfLoad(){
+  if (!S.config) return;
+  const my = ++hfBusy, n = +$('hf-page').value;
+  const query = $('hf-search').value.trim(), where = $('hf-where').value.trim();
+  const base = {dataset:S.dataset, config:S.config, split:S.split, offset:S.hfOffset, length:n};
+  let path = '/rows', params = base, kind = 'rows';
+  if (query){ path = '/search'; params = {...base, query}; kind = 'search'; }
+  else if (where){ path = '/filter'; params = {...base, where}; kind = 'filter'; }
+  status(`Loading ${kind === 'rows' ? 'rows' : kind === 'search' ? `search results for “${query}”` : 'filtered rows'} from ${S.config}…`);
+  try {
+    const j = await hf(path, params);
+    if (my !== hfBusy) return;
+    S.hfTotal = j.num_rows_total ?? 0; S.hfKind = kind;
+    const rows = (j.rows || []).map(x => { const r = {...x.row}; r.__row_idx = x.row_idx; if (x.truncated_cells?.length) r.__truncated = x.truncated_cells.join(', '); return r; });
+    setRows(rows, true);
+    for (const r of S.rows) delete r.__row_idx_tmp;
+    const trunc = rows.some(r => r.__truncated);
+    status(`${S.hfTotal.toLocaleString()} ${kind === 'rows' ? 'rows in' : 'matches in'} ${S.config}.${trunc ? ' Some long cells were cut short by Hugging Face (see __truncated).' : ''}`);
+  } catch (err){ if (my === hfBusy) status(err.message, true); }
+}
+
+// ---------- gzip-safe text reading (handles multi-part .gz files) ----------
+let pakoP = null;
+function loadPako(){
+  if (window.pako) return Promise.resolve(window.pako);
+  if (!pakoP) pakoP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js';
+    s.onload = () => window.pako ? res(window.pako) : rej(new Error('pako missing'));
+    s.onerror = () => rej(new Error('Could not load the unzip library'));
+    document.head.appendChild(s);
+  });
+  return pakoP;
+}
+async function* textChunks(file){
+  const gz = /\.gz$/i.test(file.name);
+  const reader = file.stream().getReader();
+  if (!gz){
+    const dec = new TextDecoder();
+    for (;;){ const {value, done} = await reader.read(); if (done) break; yield dec.decode(value, {stream:true}); }
+    const tail = dec.decode(); if (tail) yield tail; return;
+  }
+  let pako = null; try { pako = await loadPako(); } catch {}
+  if (pako){
+    const inf = new pako.Inflate({to:'string'}); let out = [];
+    inf.onData = c => out.push(c);
+    for (;;){
+      const {value, done} = await reader.read();
+      inf.push(done ? new Uint8Array(0) : value, done);
+      if (inf.err) throw new Error('This .gz file looks damaged (' + (inf.msg || inf.err) + ').');
+      if (out.length){ const s = out.join(''); out = []; yield s; }
+      if (done) break;
+    }
+    return;
+  }
+  if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot unzip .gz files. Use a recent Chrome, Edge, Firefox or Safari.');
+  reader.releaseLock();
+  const r2 = file.stream().pipeThrough(new DecompressionStream('gzip')).pipeThrough(new TextDecoderStream()).getReader();
+  for (;;){ const {value, done} = await r2.read(); if (done) break; yield value; }
+}
+
+// ---------- local files ----------
+$('file-in').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  S.config = ''; S.hfTotal = 0;
+  const cap = Math.max(1000, +$('file-cap').value || 300000);
+  const gz = /\.gz$/i.test(f.name), lines = /\.jsonl(\.gz)?$/i.test(f.name);
+  status(`Reading ${f.name} (${(f.size/1e6).toFixed(1)} MB${gz?' compressed':''})…`);
+  try {
+    let rows;
+    if (lines){
+      rows = []; let buf = '', bad = 0;
+      outer: for await (const value of textChunks(f)){
+        buf += value;
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0){
+          const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+          if (line.trim()){ try { rows.push(JSON.parse(line)); } catch { bad++; } }
+          if (rows.length >= cap) break outer;
+        }
+        if (rows.length % 20000 < 50) status(`Read ${rows.length.toLocaleString()} rows…`);
+      }
+      if (buf.trim() && rows.length < cap){ try { rows.push(JSON.parse(buf)); } catch { bad++; } }
+      rows = rows.map(r => isObj(r) ? r : {value:r});
+      status(`Loaded ${rows.length.toLocaleString()} rows from ${f.name}${rows.length >= cap ? ` (stopped at the ${cap.toLocaleString()} row limit)` : ''}${bad ? `; ${bad} unreadable lines skipped` : ''}.`);
+    } else {
+      let text = ''; for await (const c of textChunks(f)) text += c;
+      status('Parsing JSON…');
+      await new Promise(r => setTimeout(r, 20));
+      rows = toRows(JSON.parse(text));
+      if (rows.length > cap) rows = rows.slice(0, cap);
+      status(`Loaded ${rows.length.toLocaleString()} entries from ${f.name}.`);
+    }
+    setRows(rows, false);
+  } catch (err){ status(`Could not read ${f.name}: ${err.message}`, true); }
+};
+
+// ---------- toolbar ----------
+let qT;
+$('q').addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(() => refresh(true), 200); });
+$('f-speaker').onchange = () => refresh(true);
+$('only-star').onchange = () => refresh(true);
+$('copy-cases').onclick = async () => {
+  const m = S.map;
+  const md = [...S.stars.values()].sort((a,b) => (toMs(a[m.time])||0) - (toMs(b[m.time])||0)).map((r,i) => {
+    const link = liveLink(r);
+    const src = S.mode === 'hf' ? `${S.config} row ${r.__row_idx}` : `row ${r.__i}`;
+    const t = asText(r[m.text]).trim();
+    return `**Case ${i+1}** · ${r[m.speaker] ?? 'Unknown'} · ${fmtTime(r[m.time])} · ${src}${link ? ` · [view](${link})` : ''}\n\n> ${t.replace(/\n/g, '\n> ')}`;
+  }).join('\n\n---\n\n');
+  const btn = $('copy-cases'), old = btn.textContent;
+  try { await navigator.clipboard.writeText(md); btn.textContent = 'Copied'; }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = md; ta.style.cssText = 'width:100%;height:200px;font:12px var(--f-mono)';
+    const d = $('detail'); d.innerHTML = '<p class="hint">Copy blocked by the browser. Select the text below and copy it.</p>'; d.appendChild(ta); d.hidden = false; ta.select();
+    btn.textContent = 'Select and copy below';
+  }
+  setTimeout(() => { btn.textContent = old; }, 2000);
+};
+
+render(); stats();
+})();
+</script>
+</body>
+</html>

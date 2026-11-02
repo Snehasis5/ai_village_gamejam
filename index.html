@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Memory in the AI Village Game Jam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root{
+  --color-fg:#1d1f1c;--color-fg-muted:#6a6e68;--color-bg:#f6f5f1;--color-panel:#ffffff;--color-border-line:#e2e0d9;
+  --color-ok:#2f7d4f;--color-warn:#a3620f;--color-bad:#b3362c;
+  --font-anthropic-sans:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-anthropic-serif:"Source Serif 4",Georgia,serif;
+  --cds-font-size-caption:12.5px;--cds-font-size-body:15px;--cds-font-size-heading:17px;--cds-font-size-title:28px;--cds-font-weight-medium:600;
+  --cds-gap-xs:4px;--cds-gap-sm:8px;--cds-gap-md:16px;--cds-gap-lg:24px;--cds-gap-xl:32px;
+  --cds-pad-xs:4px;--cds-pad-sm:8px;--cds-pad-md:12px;--cds-pad-lg:20px;--cds-pad-xl:28px;--cds-radius:8px;
+  --cds-chart-grid:#ebe9e3;--cds-chart-axis:#c9c6bd;--cds-chart-muted:#b9b6ad;--cds-chart-reference:#9a978f;--cds-chart-status-critical:#c2392d;
+  --cds-surface-popover:#ffffff;--cds-border:#dedbd3;--cds-shadow-popover:0 8px 24px rgba(0,0,0,.12);--cds-text-secondary:#6a6e68;
+  --cds-dur-slow:.6s;--cds-ease-out:cubic-bezier(.2,.7,.2,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --color-fg:#ecebe6;--color-fg-muted:#a3a39b;--color-bg:#151614;--color-panel:#1e1f1c;--color-border-line:#33352f;
+  --cds-chart-grid:#2a2c27;--cds-chart-axis:#4a4c45;--cds-chart-muted:#5d6058;--cds-chart-status-critical:#f07a6e;
+  --cds-surface-popover:#262823;--cds-border:#3a3c36;--cds-text-secondary:#a3a39b;color-scheme:dark}}
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans)}
+#dash-root{padding-inline:var(--dash-gutter,24px)}
+</style>
+<script>
+window.MW_DATA = {"summary": [{"snapshots": 640, "agents": 6, "fable_snapshots": 382, "sol_snapshots": 258, "characters": 19207179, "fun_mentions": 0, "max_wrong_life": 31, "rival_life": 80, "quar_start_chars": 302, "quar_end_chars": 37}], "beliefs": [{"belief": "sky", "order": 1, "label": "Sky clock \"runs on wall time\"", "agents": "Fable Agent 2", "first": "2026-08-05T12:28", "last": "2026-08-06T09:59", "snapshots": 31, "corrected": "2026-08-06T09:59", "outcome": "Corrected"}, {"belief": "saves", "order": 2, "label": "\"Saves don't persist locally\"", "agents": "Fable Agent 1", "first": "2026-08-05T15:29", "last": "2026-08-06T12:32", "snapshots": 28, "corrected": "2026-08-06T12:32", "outcome": "Corrected"}, {"belief": "rival", "order": 3, "label": "Other team's game is \"much smaller\" in scope", "agents": "Fable Agents 1\u20133", "first": "2026-08-06T16:40", "last": "2026-08-07T17:02", "snapshots": 80, "corrected": "", "outcome": "Not re-checked"}, {"belief": "quarantine", "order": 4, "label": "Warning to ignore Team Fable items", "agents": "Sol Agents 1\u20132", "first": "2026-08-06T09:05", "last": "2026-08-07T13:47", "snapshots": 90, "corrected": "", "outcome": "Kept until the end"}], "belief_hits": [{"belief": "sky", "t": "2026-08-05T12:28"}, {"belief": "sky", "t": "2026-08-05T12:30"}, {"belief": "sky", "t": "2026-08-05T12:55"}, {"belief": "sky", "t": "2026-08-05T12:56"}, {"belief": "sky", "t": "2026-08-05T13:16"}, {"belief": "sky", "t": "2026-08-05T13:17"}, {"belief": "sky", "t": "2026-08-05T13:34"}, {"belief": "sky", "t": "2026-08-05T13:35"}, {"belief": "sky", "t": "2026-08-05T13:51"}, {"belief": "sky", "t": "2026-08-05T13:52"}, {"belief": "sky", "t": "2026-08-05T14:13"}, {"belief": "sky", "t": "2026-08-05T14:14"}, {"belief": "sky", "t": "2026-08-05T14:33"}, {"belief": "sky", "t": "2026-08-05T14:34"}, {"belief": "sky", "t": "2026-08-05T14:51"}, {"belief": "sky", "t": "2026-08-05T14:52"}, {"belief": "sky", "t": "2026-08-05T15:12"}, {"belief": "sky", "t": "2026-08-05T15:14"}, {"belief": "sky", "t": "2026-08-05T15:31"}, {"belief": "sky", "t": "2026-08-05T15:32"}, {"belief": "sky", "t": "2026-08-05T15:59"}, {"belief": "sky", "t": "2026-08-05T16:00"}, {"belief": "sky", "t": "2026-08-05T16:27"}, {"belief": "sky", "t": "2026-08-05T16:29"}, {"belief": "sky", "t": "2026-08-05T16:45"}, {"belief": "sky", "t": "2026-08-05T16:47"}, {"belief": "sky", "t": "2026-08-05T16:57"}, {"belief": "sky", "t": "2026-08-05T16:58"}, {"belief": "sky", "t": "2026-08-06T09:32"}, {"belief": "sky", "t": "2026-08-06T09:33"}, {"belief": "sky", "t": "2026-08-06T09:59"}, {"belief": "saves", "t": "2026-08-05T15:29"}, {"belief": "saves", "t": "2026-08-05T15:46"}, {"belief": "saves", "t": "2026-08-05T15:48"}, {"belief": "saves", "t": "2026-08-05T16:04"}, {"belief": "saves", "t": "2026-08-05T16:06"}, {"belief": "saves", "t": "2026-08-05T16:21"}, {"belief": "saves", "t": "2026-08-05T16:23"}, {"belief": "saves", "t": "2026-08-05T16:41"}, {"belief": "saves", "t": "2026-08-05T16:43"}, {"belief": "saves", "t": "2026-08-05T16:56"}, {"belief": "saves", "t": "2026-08-05T16:58"}, {"belief": "saves", "t": "2026-08-06T09:20"}, {"belief": "saves", "t": "2026-08-06T09:22"}, {"belief": "saves", "t": "2026-08-06T09:39"}, {"belief": "saves", "t": "2026-08-06T09:41"}, {"belief": "saves", "t": "2026-08-06T10:00"}, {"belief": "saves", "t": "2026-08-06T10:03"}, {"belief": "saves", "t": "2026-08-06T10:20"}, {"belief": "saves", "t": "2026-08-06T10:23"}, {"belief": "saves", "t": "2026-08-06T10:41"}, {"belief": "saves", "t": "2026-08-06T10:43"}, {"belief": "saves", "t": "2026-08-06T11:03"}, {"belief": "saves", "t": "2026-08-06T11:05"}, {"belief": "saves", "t": "2026-08-06T11:31"}, {"belief": "saves", "t": "2026-08-06T11:33"}, {"belief": "saves", "t": "2026-08-06T11:57"}, {"belief": "saves", "t": "2026-08-06T11:59"}, {"belief": "saves", "t": "2026-08-06T12:32"}, {"belief": "rival", "t": "2026-08-06T16:40"}, {"belief": "rival", "t": "2026-08-06T16:41"}, {"belief": "rival", "t": "2026-08-06T16:42"}, {"belief": "rival", "t": "2026-08-06T16:43"}, {"belief": "rival", "t": "2026-08-06T16:57"}, {"belief": "rival", "t": "2026-08-06T16:59"}, {"belief": "rival", "t": "2026-08-06T17:02"}, {"belief": "rival", "t": "2026-08-06T17:04"}, {"belief": "rival", "t": "2026-08-07T09:16"}, {"belief": "rival", "t": "2026-08-07T09:17"}, {"belief": "rival", "t": "2026-08-07T09:18"}, {"belief": "rival", "t": "2026-08-07T09:18"}, {"belief": "rival", "t": "2026-08-07T09:19"}, {"belief": "rival", "t": "2026-08-07T09:20"}, {"belief": "rival", "t": "2026-08-07T09:31"}, {"belief": "rival", "t": "2026-08-07T09:33"}, {"belief": "rival", "t": "2026-08-07T09:33"}, {"belief": "rival", "t": "2026-08-07T09:34"}, {"belief": "rival", "t": "2026-08-07T09:35"}, {"belief": "rival", "t": "2026-08-07T09:37"}, {"belief": "rival", "t": "2026-08-07T09:46"}, {"belief": "rival", "t": "2026-08-07T09:48"}, {"belief": "rival", "t": "2026-08-07T09:49"}, {"belief": "rival", "t": "2026-08-07T09:51"}, {"belief": "rival", "t": "2026-08-07T09:52"}, {"belief": "rival", "t": "2026-08-07T09:54"}, {"belief": "rival", "t": "2026-08-07T10:02"}, {"belief": "rival", "t": "2026-08-07T10:03"}, {"belief": "rival", "t": "2026-08-07T10:04"}, {"belief": "rival", "t": "2026-08-07T10:06"}, {"belief": "rival", "t": "2026-08-07T10:08"}, {"belief": "rival", "t": "2026-08-07T10:09"}, {"belief": "rival", "t": "2026-08-07T10:24"}, {"belief": "rival", "t": "2026-08-07T10:26"}, {"belief": "rival", "t": "2026-08-07T10:40"}, {"belief": "rival", "t": "2026-08-07T10:42"}, {"belief": "rival", "t": "2026-08-07T10:43"}, {"belief": "rival", "t": "2026-08-07T10:43"}, {"belief": "rival", "t": "2026-08-07T10:46"}, {"belief": "rival", "t": "2026-08-07T10:49"}, {"belief": "rival", "t": "2026-08-07T11:01"}, {"belief": "rival", "t": "2026-08-07T11:05"}, {"belief": "rival", "t": "2026-08-07T11:07"}, {"belief": "rival", "t": "2026-08-07T11:18"}, {"belief": "rival", "t": "2026-08-07T11:19"}, {"belief": "rival", "t": "2026-08-07T11:30"}, {"belief": "rival", "t": "2026-08-07T11:32"}, {"belief": "rival", "t": "2026-08-07T11:44"}, {"belief": "rival", "t": "2026-08-07T11:45"}, {"belief": "rival", "t": "2026-08-07T11:49"}, {"belief": "rival", "t": "2026-08-07T11:51"}, {"belief": "rival", "t": "2026-08-07T12:14"}, {"belief": "rival", "t": "2026-08-07T12:14"}, {"belief": "rival", "t": "2026-08-07T12:15"}, {"belief": "rival", "t": "2026-08-07T12:17"}, {"belief": "rival", "t": "2026-08-07T12:42"}, {"belief": "rival", "t": "2026-08-07T12:43"}, {"belief": "rival", "t": "2026-08-07T12:44"}, {"belief": "rival", "t": "2026-08-07T12:47"}, {"belief": "rival", "t": "2026-08-07T13:13"}, {"belief": "rival", "t": "2026-08-07T13:15"}, {"belief": "rival", "t": "2026-08-07T13:42"}, {"belief": "rival", "t": "2026-08-07T13:44"}, {"belief": "rival", "t": "2026-08-07T14:03"}, {"belief": "rival", "t": "2026-08-07T14:05"}, {"belief": "rival", "t": "2026-08-07T14:23"}, {"belief": "rival", "t": "2026-08-07T14:25"}, {"belief": "rival", "t": "2026-08-07T15:07"}, {"belief": "rival", "t": "2026-08-07T15:09"}, {"belief": "rival", "t": "2026-08-07T15:25"}, {"belief": "rival", "t": "2026-08-07T15:27"}, {"belief": "rival", "t": "2026-08-07T15:58"}, {"belief": "rival", "t": "2026-08-07T15:59"}, {"belief": "rival", "t": "2026-08-07T16:09"}, {"belief": "rival", "t": "2026-08-07T16:11"}, {"belief": "rival", "t": "2026-08-07T16:50"}, {"belief": "rival", "t": "2026-08-07T16:52"}, {"belief": "rival", "t": "2026-08-07T16:53"}, {"belief": "rival", "t": "2026-08-07T17:00"}, {"belief": "rival", "t": "2026-08-07T17:02"}, {"belief": "quarantine", "t": "2026-08-06T09:05"}, {"belief": "quarantine", "t": "2026-08-06T09:06"}, {"belief": "quarantine", "t": "2026-08-06T09:13"}, {"belief": "quarantine", "t": "2026-08-06T09:15"}, {"belief": "quarantine", "t": "2026-08-06T09:24"}, {"belief": "quarantine", "t": "2026-08-06T09:26"}, {"belief": "quarantine", "t": "2026-08-06T09:31"}, {"belief": "quarantine", "t": "2026-08-06T09:32"}, {"belief": "quarantine", "t": "2026-08-06T09:41"}, {"belief": "quarantine", "t": "2026-08-06T09:42"}, {"belief": "quarantine", "t": "2026-08-06T09:47"}, {"belief": "quarantine", "t": "2026-08-06T09:48"}, {"belief": "quarantine", "t": "2026-08-06T09:59"}, {"belief": "quarantine", "t": "2026-08-06T10:00"}, {"belief": "quarantine", "t": "2026-08-06T10:07"}, {"belief": "quarantine", "t": "2026-08-06T10:08"}, {"belief": "quarantine", "t": "2026-08-06T10:22"}, {"belief": "quarantine", "t": "2026-08-06T10:23"}, {"belief": "quarantine", "t": "2026-08-06T10:23"}, {"belief": "quarantine", "t": "2026-08-06T10:25"}, {"belief": "quarantine", "t": "2026-08-06T10:43"}, {"belief": "quarantine", "t": "2026-08-06T10:45"}, {"belief": "quarantine", "t": "2026-08-06T10:45"}, {"belief": "quarantine", "t": "2026-08-06T10:47"}, {"belief": "quarantine", "t": "2026-08-06T10:59"}, {"belief": "quarantine", "t": "2026-08-06T11:01"}, {"belief": "quarantine", "t": "2026-08-06T11:12"}, {"belief": "quarantine", "t": "2026-08-06T11:14"}, {"belief": "quarantine", "t": "2026-08-06T11:16"}, {"belief": "quarantine", "t": "2026-08-06T11:17"}, {"belief": "quarantine", "t": "2026-08-06T11:33"}, {"belief": "quarantine", "t": "2026-08-06T11:34"}, {"belief": "quarantine", "t": "2026-08-06T11:35"}, {"belief": "quarantine", "t": "2026-08-06T11:36"}, {"belief": "quarantine", "t": "2026-08-06T11:51"}, {"belief": "quarantine", "t": "2026-08-06T11:52"}, {"belief": "quarantine", "t": "2026-08-06T11:54"}, {"belief": "quarantine", "t": "2026-08-06T11:55"}, {"belief": "quarantine", "t": "2026-08-06T12:14"}, {"belief": "quarantine", "t": "2026-08-06T12:15"}, {"belief": "quarantine", "t": "2026-08-06T12:16"}, {"belief": "quarantine", "t": "2026-08-06T12:17"}, {"belief": "quarantine", "t": "2026-08-06T12:40"}, {"belief": "quarantine", "t": "2026-08-06T12:41"}, {"belief": "quarantine", "t": "2026-08-06T12:42"}, {"belief": "quarantine", "t": "2026-08-06T12:44"}, {"belief": "quarantine", "t": "2026-08-06T13:03"}, {"belief": "quarantine", "t": "2026-08-06T13:04"}, {"belief": "quarantine", "t": "2026-08-06T13:08"}, {"belief": "quarantine", "t": "2026-08-06T13:09"}, {"belief": "quarantine", "t": "2026-08-06T13:22"}, {"belief": "quarantine", "t": "2026-08-06T13:24"}, {"belief": "quarantine", "t": "2026-08-06T13:24"}, {"belief": "quarantine", "t": "2026-08-06T13:25"}, {"belief": "quarantine", "t": "2026-08-06T13:46"}, {"belief": "quarantine", "t": "2026-08-06T13:48"}, {"belief": "quarantine", "t": "2026-08-06T13:49"}, {"belief": "quarantine", "t": "2026-08-06T13:50"}, {"belief": "quarantine", "t": "2026-08-06T14:04"}, {"belief": "quarantine", "t": "2026-08-06T14:05"}, {"belief": "quarantine", "t": "2026-08-06T14:05"}, {"belief": "quarantine", "t": "2026-08-06T14:07"}, {"belief": "quarantine", "t": "2026-08-06T14:19"}, {"belief": "quarantine", "t": "2026-08-06T14:20"}, {"belief": "quarantine", "t": "2026-08-06T14:30"}, {"belief": "quarantine", "t": "2026-08-06T14:31"}, {"belief": "quarantine", "t": "2026-08-06T14:44"}, {"belief": "quarantine", "t": "2026-08-06T14:45"}, {"belief": "quarantine", "t": "2026-08-06T14:57"}, {"belief": "quarantine", "t": "2026-08-06T14:58"}, {"belief": "quarantine", "t": "2026-08-06T15:06"}, {"belief": "quarantine", "t": "2026-08-06T15:07"}, {"belief": "quarantine", "t": "2026-08-06T15:15"}, {"belief": "quarantine", "t": "2026-08-06T15:16"}, {"belief": "quarantine", "t": "2026-08-06T15:17"}, {"belief": "quarantine", "t": "2026-08-06T15:18"}, {"belief": "quarantine", "t": "2026-08-06T16:36"}, {"belief": "quarantine", "t": "2026-08-06T16:38"}, {"belief": "quarantine", "t": "2026-08-06T16:38"}, {"belief": "quarantine", "t": "2026-08-06T16:39"}, {"belief": "quarantine", "t": "2026-08-07T09:04"}, {"belief": "quarantine", "t": "2026-08-07T09:05"}, {"belief": "quarantine", "t": "2026-08-07T09:06"}, {"belief": "quarantine", "t": "2026-08-07T09:07"}, {"belief": "quarantine", "t": "2026-08-07T13:06"}, {"belief": "quarantine", "t": "2026-08-07T13:08"}, {"belief": "quarantine", "t": "2026-08-07T13:38"}, {"belief": "quarantine", "t": "2026-08-07T13:40"}, {"belief": "quarantine", "t": "2026-08-07T13:45"}, {"belief": "quarantine", "t": "2026-08-07T13:47"}], "quarantine": [{"agent": "Sol Agent 2", "t": "2026-08-06T09:05", "chars": 302}, {"agent": "Sol Agent 2", "t": "2026-08-06T09:06", "chars": 307}, {"agent": "Sol Agent 1", "t": "2026-08-06T09:13", "chars": 131}, {"agent": "Sol Agent 1", "t": "2026-08-06T09:15", "chars": 135}, {"agent": "Sol Agent 2", "t": "2026-08-06T09:24", "chars": 307}, {"agent": "Sol Agent 2", "t": "2026-08-06T09:26", "chars": 127}, {"agent": "Sol Agent 1", "t": "2026-08-06T09:31", "chars": 135}, {"agent": "Sol Agent 1", "t": "2026-08-06T09:32", "chars": 119}, {"agent": "Sol Agent 2", "t": "2026-08-06T09:41", "chars": 127}, {"agent": "Sol Agent 2", "t": "2026-08-06T09:42", "chars": 126}, {"agent": "Sol Agent 1", "t": "2026-08-06T09:47", "chars": 238}, {"agent": "Sol Agent 1", "t": "2026-08-06T09:48", "chars": 97}, {"agent": "Sol Agent 2", "t": "2026-08-06T09:59", "chars": 126}, {"agent": "Sol Agent 2", "t": "2026-08-06T10:00", "chars": 79}, {"agent": "Sol Agent 1", "t": "2026-08-06T10:07", "chars": 97}, {"agent": "Sol Agent 1", "t": "2026-08-06T10:08", "chars": 98}, {"agent": "Sol Agent 2", "t": "2026-08-06T10:22", "chars": 79}, {"agent": "Sol Agent 1", "t": "2026-08-06T10:23", "chars": 98}, {"agent": "Sol Agent 2", "t": "2026-08-06T10:23", "chars": 79}, {"agent": "Sol Agent 1", "t": "2026-08-06T10:25", "chars": 98}, {"agent": "Sol Agent 2", "t": "2026-08-06T10:43", "chars": 79}, {"agent": "Sol Agent 2", "t": "2026-08-06T10:45", "chars": 79}, {"agent": "Sol Agent 1", "t": "2026-08-06T10:45", "chars": 98}, {"agent": "Sol Agent 1", "t": "2026-08-06T10:47", "chars": 70}, {"agent": "Sol Agent 2", "t": "2026-08-06T10:59", "chars": 79}, {"agent": "Sol Agent 2", "t": "2026-08-06T11:01", "chars": 71}, {"agent": "Sol Agent 1", "t": "2026-08-06T11:12", "chars": 70}, {"agent": "Sol Agent 1", "t": "2026-08-06T11:14", "chars": 45}, {"agent": "Sol Agent 2", "t": "2026-08-06T11:16", "chars": 71}, {"agent": "Sol Agent 2", "t": "2026-08-06T11:17", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T11:33", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T11:34", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T11:35", "chars": 90}, {"agent": "Sol Agent 1", "t": "2026-08-06T11:36", "chars": 45}, {"agent": "Sol Agent 2", "t": "2026-08-06T11:51", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T11:52", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T11:54", "chars": 45}, {"agent": "Sol Agent 1", "t": "2026-08-06T11:55", "chars": 45}, {"agent": "Sol Agent 1", "t": "2026-08-06T12:14", "chars": 45}, {"agent": "Sol Agent 1", "t": "2026-08-06T12:15", "chars": 45}, {"agent": "Sol Agent 2", "t": "2026-08-06T12:16", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T12:17", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T12:40", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T12:41", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T12:42", "chars": 45}, {"agent": "Sol Agent 1", "t": "2026-08-06T12:44", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-06T13:03", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T13:04", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T13:08", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-06T13:09", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-06T13:22", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T13:24", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T13:24", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-06T13:25", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-06T13:46", "chars": 74}, {"agent": "Sol Agent 1", "t": "2026-08-06T13:48", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-06T13:49", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T13:50", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T14:04", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T14:05", "chars": 74}, {"agent": "Sol Agent 2", "t": "2026-08-06T14:05", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T14:07", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-06T14:19", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T14:20", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T14:30", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-06T14:31", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-06T14:44", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T14:45", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T14:57", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-06T14:58", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-06T15:06", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T15:07", "chars": 62}, {"agent": "Sol Agent 2", "t": "2026-08-06T15:15", "chars": 62}, {"agent": "Sol Agent 1", "t": "2026-08-06T15:16", "chars": 74}, {"agent": "Sol Agent 2", "t": "2026-08-06T15:17", "chars": 59}, {"agent": "Sol Agent 1", "t": "2026-08-06T15:18", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-06T16:36", "chars": 59}, {"agent": "Sol Agent 2", "t": "2026-08-06T16:38", "chars": 64}, {"agent": "Sol Agent 1", "t": "2026-08-06T16:38", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-06T16:39", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-07T09:04", "chars": 64}, {"agent": "Sol Agent 1", "t": "2026-08-07T09:05", "chars": 37}, {"agent": "Sol Agent 2", "t": "2026-08-07T09:06", "chars": 64}, {"agent": "Sol Agent 1", "t": "2026-08-07T09:07", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-07T13:06", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-07T13:08", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-07T13:38", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-07T13:40", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-07T13:45", "chars": 37}, {"agent": "Sol Agent 1", "t": "2026-08-07T13:47", "chars": 37}], "contrast": [{"measure": "Mentions of \"review\"", "fable": 0.73, "sol": 18.42}, {"measure": "Rule lines (never / always / do not / must\u2026)", "fable": 0.7, "sol": 15.52}, {"measure": "Mentions of humans", "fable": 6.53, "sol": 0.42}, {"measure": "Mentions of the rival team", "fable": 4.36, "sol": 0.84}, {"measure": "\"CLEAN\" review verdicts", "fable": 0.24, "sol": 4.98}, {"measure": "Checkmarks \u2713 \u2705", "fable": 2.63, "sol": 0.0}], "antirep": [{"team": "Team Fable", "day": "Tue 04 Aug", "order": 1, "per_snapshot": 0.94, "snapshots": 17}, {"team": "Team Fable", "day": "Wed 05 Aug", "order": 2, "per_snapshot": 2.24, "snapshots": 142}, {"team": "Team Fable", "day": "Thu 06 Aug", "order": 3, "per_snapshot": 2.53, "snapshots": 125}, {"team": "Team Fable", "day": "Fri 07 Aug", "order": 4, "per_snapshot": 4.68, "snapshots": 98}, {"team": "Team Sol", "day": "Tue 04 Aug", "order": 1, "per_snapshot": 1.17, "snapshots": 12}, {"team": "Team Sol", "day": "Wed 05 Aug", "order": 2, "per_snapshot": 1.63, "snapshots": 118}, {"team": "Team Sol", "day": "Thu 06 Aug", "order": 3, "per_snapshot": 2.16, "snapshots": 112}, {"team": "Team Sol", "day": "Fri 07 Aug", "order": 4, "per_snapshot": 2.12, "snapshots": 16}]};
+(function(){
+  var draws = {}, ready = false;
+  function runOne(name){
+    var fn = draws[name]; if (!fn) return;
+    document.querySelectorAll('[data-draw="' + name + '"]').forEach(function(el){
+      try { fn(el); } catch (e) { console.error(name, e); }
+      if (!el._ro && window.ResizeObserver){
+        var w = el.clientWidth;
+        el._ro = new ResizeObserver(function(){ if (Math.abs(el.clientWidth - w) > 2){ w = el.clientWidth; try { fn(el); } catch (e) {} } });
+        el._ro.observe(el);
+      }
+    });
+  }
+  window.dash = {
+    colors: ['#b7791f', '#3b6fb6', '#8a63c9', '#2f8f6b', '#c99a2e', '#4a9fb8', '#b5527a', '#6f7d3a'],
+    data: function(id){ var d = window.MW_DATA[id]; return d ? {status: 'ok', data: d, columns: d.length ? Object.keys(d[0]) : [], meta: [], refreshing: false} : {status: 'missing', data: [], meta: []}; },
+    draw: function(name, fn){ if (fn){ draws[name] = typeof fn === 'function' ? fn : fn.update || fn.mount; if (ready) runOne(name); } else runOne(name); },
+    onData: function(fn){ fn(); },
+    params: function(){ return {}; }, setParams: function(){}, resetParams: function(){}, setLink: function(){}, refresh: function(){},
+    calc: function(){}, loader: function(){}
+  };
+  window.addEventListener('DOMContentLoaded', function(){ ready = true; Object.keys(draws).forEach(runOne); });
+})();
+</script>
+</head>
+<body>
+<div id="dash-root">
+
+<style>
+/* Scroll story: hero (headline + live memory card) → the setup → how memory works → sticky timeline with three chapters → the leak → two habits of mind → repetition → why it matters. */
+#dash-root{--dash-gutter:clamp(16px,3vw,40px)}
+.mw{--mw-fable:#b7791f;--mw-sol:#3b6fb6;--mw-bad:var(--cds-chart-status-critical);max-width:1180px;margin-inline:auto;display:flex;flex-direction:column;gap:clamp(56px,8vw,112px);font-family:var(--font-anthropic-sans);color:var(--color-fg);padding-block:12px 40px}
+.mw .mw-serif{font-family:var(--font-anthropic-serif);font-weight:400}
+.mw p{margin:0}
+.mw b,.mw strong{font-weight:600}
+.mw-kicker{font-size:var(--cds-font-size-caption);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)}
+.mw-h2{font-family:var(--font-anthropic-serif);font-weight:400;font-size:clamp(1.7rem,3.2vw,2.5rem);line-height:1.12;margin:0;text-wrap:balance}
+.mw-body{font-size:clamp(1rem,1.25vw,1.12rem);line-height:1.65;max-width:62ch;color:var(--color-fg)}
+.mw-muted{color:var(--color-fg-muted)}
+.mw-sec{display:flex;flex-direction:column;gap:20px}
+
+/* hero */
+.mw-hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:clamp(24px,4vw,56px);align-items:center;min-height:min(78vh,720px)}
+@media (max-width:860px){.mw-hero{grid-template-columns:1fr;min-height:0}}
+.mw-hero h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:clamp(2.6rem,6.2vw,5.2rem);line-height:.98;letter-spacing:-.02em;margin:14px 0 22px;text-wrap:balance}
+.mw-hero h1 em{font-style:italic;color:var(--mw-bad)}
+.mw-lede{font-size:clamp(1.1rem,1.6vw,1.35rem);line-height:1.55;max-width:34ch}
+.mw-scroll{margin-top:28px;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);display:flex;align-items:center;gap:10px}
+.mw-scroll i{display:inline-block;width:1px;height:28px;background:var(--color-fg-muted)}
+
+/* live memory card */
+.mw-memo{position:relative;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:14px;padding:22px 22px 18px;box-shadow:0 30px 60px -30px rgba(0,0,0,.35);font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
+.mw-memo-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-anthropic-sans);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-bottom:14px;gap:8px;flex-wrap:wrap}
+.mw-dots{display:inline-flex;gap:6px}.mw-dots i{width:9px;height:9px;border-radius:50%;background:var(--color-border-line)}
+.mw-memo-lines{display:flex;flex-direction:column;gap:9px;font-size:12.5px;line-height:1.5}
+.mw-ghost{height:9px;border-radius:5px;background:var(--color-border-line);opacity:.65}
+.mw-stage{position:relative;min-height:12em;margin:10px 0}
+@media (max-width:520px){.mw-stage{min-height:14.5em}}
+@media (prefers-color-scheme:dark){.mw{--mw-fable:#d9a441;--mw-sol:#79a6e6}}
+.mw-ver{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;opacity:0}
+.mw-ver .mw-stamp{font-family:var(--font-anthropic-sans);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.mw-ver .mw-line{font-size:13.5px;line-height:1.55;padding:10px 12px;border-radius:8px;background:var(--color-bg);border-left:3px solid var(--mw-fable)}
+.mw-ver .mw-cut{background:color-mix(in srgb,var(--mw-bad) 22%,transparent);text-decoration:line-through;text-decoration-color:var(--mw-bad)}
+.mw-ver .mw-ok{border-left-color:var(--mw-bad)}
+.mw-ver .mw-why{font-family:var(--font-anthropic-sans);font-size:13px;color:var(--color-fg-muted)}
+.mw-ver:first-child{opacity:1}
+.mw-memo-foot{font-family:var(--font-anthropic-sans);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-top:12px;display:flex;gap:6px;align-items:center}
+.mw-pips{display:inline-flex;gap:4px}.mw-pips i{width:18px;height:3px;border-radius:2px;background:var(--color-border-line)}
+@media (prefers-reduced-motion:no-preference){
+  .mw-ver{animation:mwCycle 15s infinite}
+  .mw-ver:nth-child(2){animation-delay:5s}
+  .mw-ver:nth-child(3){animation-delay:10s}
+  .mw-ver:first-child{opacity:0}
+  @keyframes mwCycle{0%{opacity:0;transform:translateY(8px)}4%{opacity:1;transform:none}30%{opacity:1;transform:none}34%{opacity:0;transform:translateY(-8px)}100%{opacity:0}}
+  .mw-pips i{animation:mwPip 15s infinite}
+  .mw-pips i:nth-child(2){animation-delay:5s}.mw-pips i:nth-child(3){animation-delay:10s}
+  @keyframes mwPip{0%,30%{background:var(--mw-fable)}34%,100%{background:var(--color-border-line)}}
+  .mw-scroll i{animation:mwDrip 2.2s var(--cds-ease-out) infinite;transform-origin:top}
+  @keyframes mwDrip{0%{transform:scaleY(0)}60%{transform:scaleY(1)}100%{transform:scaleY(1);opacity:0}}
+}
+@media (prefers-reduced-motion:reduce){.mw-stage{min-height:0}.mw-ver{position:static;opacity:1;margin-bottom:14px}}
+
+/* setup */
+.mw-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:16px}
+.mw-team{border:1px solid var(--color-border-line);border-radius:14px;padding:24px;background:var(--color-panel);display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden}
+.mw-team::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--mw-c)}
+.mw-team h3{margin:0;font-family:var(--font-anthropic-serif);font-weight:400;font-size:1.6rem}
+.mw-team .mw-who{font-size:var(--cds-font-size-caption);text-transform:uppercase;letter-spacing:.08em;color:var(--mw-c);font-weight:600}
+.mw-team .mw-game{font-size:1.02rem;line-height:1.55}
+.mw-team .mw-stat{display:flex;align-items:baseline;gap:8px;margin-top:6px;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption)}
+.mw-team .mw-stat b{font-family:var(--font-anthropic-serif);font-weight:400;font-size:2rem;color:var(--color-fg);font-variant-numeric:tabular-nums}
+.mw-agents{display:flex;gap:8px}
+.mw-agents i{width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--mw-c) 18%,transparent);border:1px solid color-mix(in srgb,var(--mw-c) 45%,transparent);display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:600;color:var(--mw-c)}
+
+/* memory loop */
+.mw-loop-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(20px,4vw,56px);align-items:center}
+@media (max-width:860px){.mw-loop-wrap{grid-template-columns:1fr}}
+.mw-loop{width:100%;height:auto;max-width:520px;justify-self:center}
+.mw-loop .mw-node rect{fill:var(--color-panel);stroke:var(--color-border-line)}
+.mw-loop .mw-node text{fill:var(--color-fg);font-family:var(--font-anthropic-sans);font-size:15px}
+.mw-loop .mw-node .mw-sub{fill:var(--color-fg-muted);font-size:12px}
+.mw-loop .mw-ring{fill:none;stroke:var(--color-border-line);stroke-width:2;stroke-dasharray:4 6}
+.mw-loop .mw-hot rect{stroke:var(--mw-bad);stroke-width:2}
+.mw-loop .mw-pulse{fill:var(--mw-fable)}
+
+@media (prefers-reduced-motion:no-preference){
+  .mw-loop .mw-pulse{offset-path:path("M260,60 A150,150 0 1 1 259.9,60");animation:mwOrbit 7s linear infinite}
+  @keyframes mwOrbit{to{offset-distance:100%}}
+  .mw-loop .mw-ring{animation:mwDash 30s linear infinite}
+  @keyframes mwDash{to{stroke-dashoffset:-200}}
+}
+
+/* story */
+.mw-story{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr);gap:clamp(20px,4vw,48px);align-items:start}
+.mw-sticky{position:sticky;top:12px;order:2;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:14px;padding:18px 18px 12px;display:flex;flex-direction:column;gap:10px}
+.mw-steps{order:1;display:flex;flex-direction:column;gap:clamp(40vh,55vh,60vh);padding-block:8vh 30vh}
+@media (max-width:900px){
+  .mw-story{grid-template-columns:1fr}
+  .mw-sticky{order:0;top:0;z-index:2}
+  .mw-steps{gap:45vh;padding-block:6vh 20vh}
+}
+.mw-step{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px;opacity:.38;transition:opacity .5s,transform .5s;transform:translateY(8px)}
+.mw-step.mw-on{opacity:1;transform:none}
+.mw-step h3{margin:0;font-family:var(--font-anthropic-serif);font-weight:400;font-size:1.55rem;line-height:1.15;text-wrap:balance}
+.mw-step p{font-size:1rem;line-height:1.6}
+.mw-num-tag{font-size:var(--cds-font-size-caption);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--mw-bad)}
+.mw-quote{border-left:3px solid var(--mw-q,var(--mw-fable));padding:6px 0 6px 14px;display:flex;flex-direction:column;gap:4px}
+.mw-quote q{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.55;quotes:none}
+.mw-quote span{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.mw-quote.mw-q-bad{--mw-q:var(--mw-bad)}
+.mw-quote.mw-q-sol{--mw-q:var(--mw-sol)}
+.mw-arrow-down{color:var(--color-fg-muted);font-size:13px;padding-left:14px}
+.mw-big{font-family:var(--font-anthropic-serif);font-size:2.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.mw-chart-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.mw-chart-h h4{margin:0;font-weight:600;font-size:var(--cds-font-size-body)}
+.mw-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.mw-legend span{display:inline-flex;align-items:center;gap:6px}
+.mw-sw{width:10px;height:10px;border-radius:50%;display:inline-block}
+.mw-btn{font:inherit;font-size:var(--cds-font-size-caption);border:1px solid var(--color-border-line);background:var(--color-bg);color:var(--color-fg);border-radius:999px;padding:5px 12px;cursor:pointer}
+.mw-btn:hover{border-color:var(--color-fg-muted)}
+.mw-btn:focus-visible{outline:2px solid var(--mw-fable);outline-offset:2px}
+.mw-chart{position:relative;width:100%;min-width:0}
+.mw-tl{min-height:420px}
+.mw-lane{transition:opacity .45s}
+.mw-lane.mw-dim{opacity:.13}
+
+/* leak */
+.mw-leak{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:clamp(20px,4vw,48px);align-items:center}
+@media (max-width:860px){.mw-leak{grid-template-columns:1fr}}
+.mw-shrink{display:flex;flex-direction:column;gap:12px}
+.mw-shrink .mw-quote q{font-size:14px}
+.mw-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mw-sm{min-height:270px}
+
+/* contrast + repetition */
+.mw-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr));gap:16px}
+.mw-cap{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);line-height:1.5}
+
+/* close */
+.mw-why{border-top:1px solid var(--color-border-line);padding-top:clamp(32px,5vw,56px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(20px,4vw,56px)}
+@media (max-width:860px){.mw-why{grid-template-columns:1fr}}
+.mw-why ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:12px;line-height:1.6}
+.mw-foot{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);line-height:1.6;max-width:90ch}
+
+.mw-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);max-width:260px;line-height:1.4;z-index:3}
+.mw-tip .mw-tip-h{color:var(--cds-text-secondary)}
+[data-dash-source-state=empty]{color:transparent}
+[data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+@media (prefers-reduced-motion:reduce){.mw-step{transition:none;transform:none}}
+
+.mw-intro{display:flex;flex-direction:column;gap:16px;max-width:760px}
+.mw-title{font-family:var(--font-anthropic-serif);font-weight:400;font-size:clamp(2rem,4vw,2.8rem);line-height:1.15;margin:4px 0 4px;text-wrap:balance}
+.mw-h3{font-size:1.1rem;font-weight:600;margin:0}
+.mw-findings{border:1px solid var(--color-border-line);border-radius:10px;background:var(--color-panel);padding:18px 22px;display:flex;flex-direction:column;gap:10px}
+.mw-findings ol,.mw-why ol,.mw-why ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px}
+.mw-team dl{margin:0;display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:.98rem;line-height:1.5}
+.mw-team dt{color:var(--color-fg-muted)}
+.mw-team dd{margin:0}
+.mw-table{width:100%;border-collapse:collapse;font-size:.95rem;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:10px;overflow:hidden}
+.mw-table th{text-align:left;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);font-weight:600;padding:10px 14px;border-bottom:1px solid var(--color-border-line)}
+.mw-table td{padding:10px 14px;border-bottom:1px solid var(--color-border-line);vertical-align:top}
+.mw-table tr:last-child td{border-bottom:0}
+.mw-table code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12.5px;overflow-wrap:anywhere}
+.mw-table td:first-child{white-space:nowrap}
+#example{overflow-x:auto}
+</style>
+
+<div class="mw">
+
+  <!-- HERO -->
+  <section class="mw-hero" id="top">
+    <div>
+      <div class="mw-kicker">AI Village · agent memory · August 2026</div>
+      <h1>How an AI agent's <em>own notes</em> misled it</h1>
+      <p class="mw-lede">Over four days, six AI agents built browser games and wrote memory notes for themselves. Comparing the notes in order shows statements losing their conditions, assessments that were never re-checked, and information from another team entering memory.</p>
+      <div class="mw-scroll"><i></i>Scroll down for the details</div>
+    </div>
+    <div class="mw-memo" aria-label="One line of an agent's memory across three notes">
+      <div class="mw-memo-top"><span class="mw-dots"><i></i><i></i><i></i></span><span>Memory of Claude Fable 5 · Agent 1</span></div>
+      <div class="mw-memo-lines" aria-hidden="true">
+        <div class="mw-ghost" style="width:72%"></div><div class="mw-ghost" style="width:90%"></div><div class="mw-ghost" style="width:58%"></div>
+      </div>
+      <div class="mw-stage">
+        <div class="mw-ver">
+          <span class="mw-stamp">Wed 3:29 pm · the agent turns off saving to test a fresh start</span>
+          <div class="mw-line">…location.reload() <b>(why saves don't persist after this)</b></div>
+          <span class="mw-why">Correct: it applies only after the agent's own test.</span>
+        </div>
+        <div class="mw-ver">
+          <span class="mw-stamp">Wed 4:04 pm · next version of the note</span>
+          <div class="mw-line">…CURRENT BROWSER STATE (saves don't persist <span class="mw-cut">after this</span> locally)</div>
+          <span class="mw-why">“after this” is removed, so it now reads as a general fact.</span>
+        </div>
+        <div class="mw-ver">
+          <span class="mw-stamp">Thu 12:32 pm · the next day</span>
+          <div class="mw-line mw-ok">my old memory note “saves don't persist locally” was WRONG.</div>
+          <span class="mw-why">Corrected after appearing in <b data-draw="h-saves" data-source="beliefs" data-field="snapshots" data-where="belief=saves">—</b> notes.</span>
+        </div>
+      </div>
+      <div class="mw-memo-lines" aria-hidden="true"><div class="mw-ghost" style="width:80%"></div><div class="mw-ghost" style="width:44%"></div></div>
+      <div class="mw-memo-foot"><span class="mw-pips"><i></i><i></i><i></i></span>Three versions of the same line</div>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="mw-sec" id="setup">
+    <div class="mw-kicker">Background</div>
+    <h2 class="mw-h2">Two teams had four days to build the best browser game</h2>
+    <p class="mw-body">AI Village, run by AI Digest, gives AI agents their own computers, internet access and a shared chat, and assigns them goals. For this goal, two teams of three agents worked from 9am to 5pm Pacific time, Tuesday to Friday, with a deadline of 5pm on Friday. The agents wrote all the code themselves.</p>
+    <div class="mw-teams">
+      <article class="mw-team" style="--mw-c:var(--mw-fable)">
+        <div class="mw-who">Team Fable · Claude Fable 5</div>
+        <h3>Tidebound</h3>
+        <div class="mw-agents"><i>A1</i><i>A2</i><i>A3</i></div>
+        <p class="mw-game">A 3D sailing game. The player raises and lowers the tide to reach islands and collect items.</p>
+        <div class="mw-stat"><b data-draw="s-fable" data-source="summary" data-field="fable_snapshots" data-row="0">—</b> memory notes</div>
+      </article>
+      <article class="mw-team" style="--mw-c:var(--mw-sol)">
+        <div class="mw-who">Team Sol · GPT-5.6 Sol</div>
+        <h3>ECHO//BREAK</h3>
+        <div class="mw-agents"><i>A1</i><i>A2</i><i>A3</i></div>
+        <p class="mw-game">A 2D top-down action game built on twelve-second loops. Each time the player rewinds, a copy of their earlier moves fights alongside them.</p>
+        <div class="mw-stat"><b data-draw="s-sol" data-source="summary" data-field="sol_snapshots" data-row="0">—</b> memory notes</div>
+      </article>
+    </div>
+  </section>
+
+  <!-- HOW MEMORY WORKS -->
+  <section class="mw-loop-wrap" id="memory">
+    <div class="mw-sec">
+      <div class="mw-kicker">How agent memory works</div>
+      <h2 class="mw-h2">When its context fills up, an agent rewrites a summary note and continues from it</h2>
+      <p class="mw-body">An agent's context window cannot hold four days of work. When it fills up, the agent writes a summary of what it needs to keep: the project, its role, and anything to avoid. It then continues from that summary alone. Anything left out of the summary is lost to the agent; anything copied into it is treated as known.</p>
+      <p class="mw-body mw-muted">The dataset keeps every version of these notes. This page compares all <b data-draw="s-all" data-source="summary" data-field="snapshots" data-row="0">—</b> of them in order and follows individual lines from one version to the next.</p>
+    </div>
+    <svg class="mw-loop" viewBox="0 0 520 380" role="img" aria-label="Cycle: work on the task, context fills up, rewrite the note, continue from the note">
+      <circle class="mw-ring" cx="260" cy="210" r="150"></circle>
+      <g class="mw-node"><rect x="170" y="36" width="180" height="50" rx="12"></rect><text x="260" y="58" text-anchor="middle">Work on the game</text><text class="mw-sub" x="260" y="76" text-anchor="middle">code, test, chat</text></g>
+      <g class="mw-node"><rect x="340" y="185" width="170" height="50" rx="12"></rect><text x="425" y="207" text-anchor="middle">Context fills up</text><text class="mw-sub" x="425" y="225" text-anchor="middle">limit reached</text></g>
+      <g class="mw-node mw-hot"><rect x="160" y="334" width="200" height="50" rx="12"></rect><text x="260" y="356" text-anchor="middle">Rewrite the note</text><text class="mw-sub" x="260" y="374" text-anchor="middle">details can be lost here</text></g>
+      <g class="mw-node"><rect x="10" y="185" width="170" height="50" rx="12"></rect><text x="95" y="207" text-anchor="middle">Continue</text><text class="mw-sub" x="95" y="225" text-anchor="middle">from the note alone</text></g>
+      <circle class="mw-pulse" r="7" cx="0" cy="0"></circle>
+    </svg>
+  </section>
+
+  <!-- STORY -->
+  <section class="mw-sec" id="story">
+    <div class="mw-kicker">Findings</div>
+    <h2 class="mw-h2">Four statements followed through every note</h2>
+    <p class="mw-body">Each dot in the chart is one note that still contains the statement. As you scroll through the three findings, the chart highlights the related rows.</p>
+  </section>
+
+  <section class="mw-story" data-read>
+    <div class="mw-sticky">
+      <div class="mw-chart-h">
+        <h4>Notes containing each statement, Tuesday to Friday (Pacific time)</h4>
+        <button class="mw-btn" id="replay" type="button">↻ Replay</button>
+      </div>
+      <div class="mw-legend">
+        <span><i class="mw-sw" style="background:var(--mw-bad)"></i>Incorrect, later corrected</span>
+        <span><i class="mw-sw" style="background:var(--mw-fable)"></i>Team Fable, not revisited</span>
+        <span><i class="mw-sw" style="background:var(--mw-sol)"></i>Team Sol, not revisited</span>
+        <span><b style="color:var(--mw-bad)">✕</b> Agent records the correction</span>
+      </div>
+      <div class="mw-chart mw-tl" data-draw="timeline" data-source="beliefs belief_hits"></div>
+    </div>
+
+    <div class="mw-steps">
+      <article class="mw-step" data-read-step data-step="1">
+        <div class="mw-num-tag">Finding 1 · conditions dropped</div>
+        <h3>A statement loses its condition and becomes incorrect</h3>
+        <p>Two Fable agents recorded observations that were true only in a specific situation. Later versions of the note kept the observation but dropped the situation.</p>
+        <div class="mw-quote"><q>Sky/day clock runs on WALL time … Only a sandbox artifact — fine for real players.</q><span>Fable Agent 2 · Wed 12:28 pm</span></div>
+        <div class="mw-arrow-down">↓ kept in <b data-draw="c-sky" data-source="beliefs" data-field="snapshots" data-where="belief=sky">—</b> notes</div>
+        <div class="mw-quote mw-q-bad"><q>SKY CLOCK CORRECTION (old memory was WRONG)</q><span>Fable Agent 2 · Thu 9:59 am</span></div>
+        <p class="mw-muted">Because the agent believed the problem was “fine for real players”, it also decided not to fix it.</p>
+      </article>
+
+      <article class="mw-step" data-read-step data-step="2">
+        <div class="mw-num-tag">Finding 2 · not re-checked</div>
+        <h3>One review of the other team, repeated in <b data-draw="c-rival" data-source="beliefs" data-field="snapshots" data-where="belief=rival">—</b> notes</h3>
+        <p>On Thursday afternoon, a Fable agent looked at Team Sol's code repository and reported back. All three Fable agents copied the conclusion into memory and planned Friday's work around it.</p>
+        <div class="mw-quote"><q>Our scope/atmosphere advantage looks real → Friday = pure polish + reliability.</q><span>Fable Agent 3 · Thu 4:40 pm</span></div>
+        <p>No one checked again. Team Sol's own notes had already listed six enemy types and a boss on Wednesday:</p>
+        <div class="mw-quote mw-q-sol"><q>Pursuers, Lancers, Warden/tanks, Prisms/splitters, relay, boss.</q><span>Sol Agent 1 · Wed 11:37 am</span></div>
+      </article>
+
+      <article class="mw-step" data-read-step data-step="3">
+        <div class="mw-num-tag">Finding 3 · information from another team</div>
+        <h3>A shared search tool mixed the two teams' work</h3>
+        <p>On Thursday morning, a search of the village history returned items from Team Fable's game to two Sol agents. Both noticed within eight minutes and added a warning to their notes.</p>
+        <div class="mw-quote mw-q-sol"><q>Ignore Greyshoal, Reefgate, boating, buoy, and kedge-off information completely.</q><span>Sol Agent 2 · Thu 9:05 am</span></div>
+        <p>The warning stayed in <b data-draw="c-quar" data-source="beliefs" data-field="snapshots" data-where="belief=quarantine">—</b> later notes, but got shorter each time.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- LEAK SHRINK -->
+  <section class="mw-leak" id="leak">
+    <div class="mw-shrink">
+      <div class="mw-kicker">Finding 3, continued</div>
+      <h2 class="mw-h2">The warning kept the instruction but lost the details</h2>
+      <p class="mw-body">Each rewrite shortened the warning. By Friday afternoon it no longer named any of the items it was meant to exclude.</p>
+      <div class="mw-quote mw-q-sol"><q>Ignore Greyshoal, Reefgate, boating, buoy, and kedge-off information completely.</q><span>Sol Agent 2 · Thu 9:05 am</span></div>
+      <div class="mw-quote mw-q-bad"><q>Ignore Team Fable’s unrelated work.</q><span>Sol Agent 1 · Fri 1:47 pm</span></div>
+    </div>
+    <div class="mw-card">
+      <div class="mw-chart-h"><h4>Length of the warning in each note (characters)</h4></div>
+      <div class="mw-legend" data-draw="quar-legend" data-source="quarantine"></div>
+      <div class="mw-chart mw-sm" data-draw="quar" data-source="quarantine"></div>
+      <p class="mw-cap">Sol Agent 2's first version was <b data-draw="q0" data-source="summary" data-field="quar_start_chars" data-row="0">—</b> characters long; Sol Agent 1's last was <b data-draw="q1" data-source="summary" data-field="quar_end_chars" data-row="0">—</b>. The short spikes are notes in which a longer version briefly reappeared.</p>
+    </div>
+  </section>
+
+  <!-- HABITS -->
+  <section class="mw-sec" id="habits">
+    <div class="mw-kicker">Team differences</div>
+    <h2 class="mw-h2">The same task produced different kinds of notes</h2>
+    <p class="mw-body">Team Sol's notes focus on process: release versions, code-review results and explicit rules. Team Fable's notes focus on people: what each teammate shipped, what the human organisers said and what the other team was doing. Both teams added more and more lines telling themselves not to repeat messages as the week went on.</p>
+    <div class="mw-pair">
+      <div class="mw-card">
+        <div class="mw-chart-h"><h4>How often each topic appears, per note</h4></div>
+        <div class="mw-legend"><span><i class="mw-sw" style="background:var(--mw-fable)"></i>Team Fable</span><span><i class="mw-sw" style="background:var(--mw-sol)"></i>Team Sol</span></div>
+        <div class="mw-chart mw-sm" data-draw="contrast" data-source="contrast"></div>
+      </div>
+      <div class="mw-card">
+        <div class="mw-chart-h"><h4>Lines telling the agent not to repeat itself, per note, by day</h4></div>
+        <div class="mw-chart mw-sm" data-draw="anti" data-source="antirep"></div>
+        <p class="mw-cap">Examples: “DON'T re-announce anything below” and “Do not repeatedly ask for status”. The increase suggests the agents kept noticing repetition. The chat logs would show whether repeated messages actually decreased.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY -->
+  <section class="mw-why" id="why">
+    <div class="mw-sec">
+      <div class="mw-kicker">Why it matters</div>
+      <h2 class="mw-h2">Agents on long tasks rely on notes they write themselves</h2>
+      <p class="mw-body">Long-running agents need memory, and here memory is a series of summaries. These notes show three ways a summary can go wrong. None of them is visible by reading a single note.</p>
+    </div>
+    <ol class="mw-body">
+      <li><b>Dropped conditions.</b> A statement that was true only in a test becomes a general statement.</li>
+      <li><b>No re-checking.</b> A conclusion reached once is copied forward without being verified, and it shapes later plans.</li>
+      <li><b>Outside information.</b> Shared tools can bring in another agent's context, and the warning about it loses detail each time it is rewritten.</li>
+    </ol>
+  </section>
+
+  <p class="mw-foot">Source: AI Digest, “AI Village dataset”, 2026, <i>agent_memories</i> table, 4–7 August 2026 game jam (six agents). Statements were followed by matching their wording across consecutive notes, so reworded versions may be missed. Quotes are exact, shortened with “…”. Times are Pacific. This covers one week of a much larger table, so these patterns should be tested on the full data before drawing general conclusions.</p>
+</div>
+
+
+<script>
+window.mw = (() => {
+  const parse = d3.utcParse('%Y-%m-%dT%H:%M');
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ok = (id) => { const d = dash.data(id); return d.status === 'ok' ? d.data : null; };
+  const css = (name) => { const r = document.querySelector('.mw'); return r ? getComputedStyle(r).getPropertyValue(name).trim() : ''; };
+  function tipFor(el){
+    let t = el.querySelector(':scope > .mw-tip');
+    if (!t){ t = document.createElement('div'); t.className = 'mw-tip'; t.hidden = true; el.appendChild(t); }
+    return {
+      show(ev, head, lines){
+        t.replaceChildren();
+        const h = document.createElement('div'); h.className = 'mw-tip-h'; h.textContent = head; t.appendChild(h);
+        for (const l of lines){ const p = document.createElement('div'); p.textContent = l; t.appendChild(p); }
+        t.hidden = false;
+        const box = el.getBoundingClientRect(), r = t.getBoundingClientRect();
+        let x = ev.clientX - box.left + 12, y = ev.clientY - box.top + 12;
+        if (x + r.width > box.width) x = Math.max(0, ev.clientX - box.left - r.width - 12);
+        if (y + r.height > box.height) y = Math.max(0, ev.clientY - box.top - r.height - 12);
+        t.style.left = x + 'px'; t.style.top = y + 'px';
+      },
+      hide(){ t.hidden = true; }
+    };
+  }
+  function failed(el, status){
+    el.replaceChildren();
+    if (status === 'error' || status === 'connect'){
+      const d = document.createElement('div');
+      d.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;min-height:inherit;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption)';
+      const dot = document.createElement('span'); dot.style.cssText = 'width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad)';
+      const t = document.createElement('span'); t.textContent = 'Failed to load';
+      d.append(dot, t); el.appendChild(d);
+    } else el.textContent = '—';
+  }
+  // run fn once when el first scrolls into view
+  function whenSeen(el, fn){
+    if (reduce || !('IntersectionObserver' in window)){ fn(); return; }
+    if (el._seen){ fn(); return; }
+    const io = new IntersectionObserver((es) => { if (es.some(e => e.isIntersecting)){ io.disconnect(); el._seen = true; fn(); } }, {root: document, threshold: 0.25});
+    io.observe(el);
+  }
+  return {parse, reduce, ok, css, tipFor, failed, whenSeen, step: 0, played: false};
+})();
+</script>
+
+<script>
+// numbers in the text
+const fmtInt = d3.format(',');
+const marks = [['h-saves','beliefs','snapshots','saves'],['c-sky','beliefs','snapshots','sky'],['c-rival','beliefs','snapshots','rival'],['c-quar','beliefs','snapshots','quarantine'],
+  ['s-fable','summary','fable_snapshots'],['s-sol','summary','sol_snapshots'],['s-all','summary','snapshots'],['q0','summary','quar_start_chars'],['q1','summary','quar_end_chars'],['s-fun','summary','fun_mentions']];
+for (const [name, src, field, belief] of marks){
+  dash.draw(name, (el) => {
+    const rows = mw.ok(src);
+    const row = rows ? (belief ? rows.find(r => r.belief === belief) : rows[0]) : null;
+    el.textContent = row && row[field] != null ? fmtInt(+row[field]) : '—';
+  });
+}
+</script>
+
+<script>
+// sticky timeline with playback + chapter highlighting
+const NIGHT_START = 17, NIGHT_END = 9; // village hours: 9am-5pm Pacific
+const STEP_LANES = {0: null, 1: ['sky','saves'], 2: ['rival'], 3: ['quarantine']};
+function applyStep(){
+  document.querySelectorAll('[data-draw="timeline"] .mw-lane').forEach(g => {
+    const want = STEP_LANES[mw.step];
+    g.classList.toggle('mw-dim', !!want && !want.includes(g.dataset.lane));
+  });
+  document.querySelectorAll('.mw-step').forEach(s => s.classList.toggle('mw-on', +s.dataset.step === mw.step || (mw.step === 0 && s.dataset.step === '1')));
+}
+window.mwApplyStep = applyStep;
+
+dash.draw('timeline', (el) => {
+  const beliefs = mw.ok('beliefs'), hits = mw.ok('belief_hits');
+  if (el._raf) cancelAnimationFrame(el._raf);
+  if (!beliefs || !hits){ mw.failed(el, dash.data(!beliefs ? 'beliefs' : 'belief_hits').status); return; }
+  el.replaceChildren();
+  const fable = mw.css('--mw-fable'), sol = mw.css('--mw-sol');
+  const W = Math.max(300, el.clientWidth), narrow = W < 560;
+  const B = [...beliefs].sort((a,b) => +a.order - +b.order);
+  const laneH = narrow ? 86 : 92, top = 30, H = top + B.length * laneH + 6;
+  const x0 = mw.parse('2026-08-04T15:00'), x1 = mw.parse('2026-08-07T17:30');
+  const svg = d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`).attr('role','img').attr('aria-label','Four lines of agent memory over four days, one dot per note that carried each line');
+  const meas = svg.append('text').attr('font-size',13).attr('visibility','hidden');
+  let endW = 0; for (const b of B){ meas.text(String(b.snapshots)); endW = Math.max(endW, meas.node().getComputedTextLength()); } meas.remove();
+  const ml = 4, mr = endW + 34;
+  const x = d3.scaleUtc([x0, x1], [ml, W - mr]);
+  const nights = svg.append('g');
+  for (let d = d3.utcDay.floor(x0); d < x1; d = d3.utcDay.offset(d, 1)){
+    const s = d3.utcHour.offset(d, NIGHT_START), e = d3.utcHour.offset(d, 24 + NIGHT_END);
+    const a = Math.max(x(s), ml), b2 = Math.min(x(e), W - mr);
+    if (b2 > a){
+      nights.append('rect').attr('x',a).attr('y',top - 8).attr('width',b2 - a).attr('height',H - top + 4).attr('rx',4).attr('fill','var(--cds-chart-grid)').attr('opacity',.6);
+      if (!narrow && b2 - a > 40) nights.append('text').attr('x',(a + b2) / 2).attr('y',H - 4).attr('text-anchor','middle').attr('font-size',10).attr('fill','var(--color-fg-muted)').text('night · agents off');
+    }
+  }
+  svg.append('g').selectAll('text').data(d3.utcDay.range(d3.utcDay.ceil(x0), x1)).join('text')
+    .attr('x', d => x(d3.utcHour.offset(d, 13))).attr('y', 12).attr('text-anchor','middle').attr('fill','var(--color-fg-muted)').attr('font-size',12)
+    .text(d => d3.utcFormat(narrow ? '%a' : '%A')(d));
+  const byB = d3.group(hits, h => h.belief);
+  const tip = mw.tipFor(el);
+  const fmtT = d3.utcFormat('%a %-I:%M %p');
+  const anim = [];
+  B.forEach((b, i) => {
+    const y = top + i * laneH, cy = y + 50;
+    const corrected = !!b.corrected;
+    const col = corrected ? 'var(--cds-chart-status-critical)' : (b.belief === 'quarantine' ? sol : fable);
+    const g = svg.append('g').attr('class','mw-lane').attr('data-lane', b.belief);
+    g.append('text').attr('x', ml).attr('y', y + 14).attr('fill','var(--color-fg)').attr('font-size', narrow ? 13 : 14.5).attr('font-weight',600).text(b.label);
+    g.append('text').attr('x', ml).attr('y', y + 31).attr('fill','var(--color-fg-muted)').attr('font-size',12).text(`${b.agents} · ${b.outcome.toLowerCase()}`);
+    const pts = (byB.get(b.belief) || []).map(h => mw.parse(h.t)).sort((a,c) => a - c);
+    const f = pts[0], l = pts[pts.length - 1];
+    const bar = g.append('line').attr('x1', x(f)).attr('x2', x(f)).attr('y1', cy).attr('y2', cy).attr('stroke', col).attr('stroke-width', 6).attr('stroke-linecap','round').attr('opacity', .18);
+    const dots = g.selectAll('circle.mw-d').data(pts).join('circle').attr('class','mw-d').attr('cx', d => x(d)).attr('cy', cy).attr('r', narrow ? 3 : 4).attr('fill', col).attr('opacity', 0)
+      .on('pointermove', (ev, d) => tip.show(ev, fmtT(d) + ' Pacific', [b.label, 'contained in this note']))
+      .on('pointerleave', () => tip.hide());
+    let cross = null;
+    if (corrected){
+      const c = mw.parse(b.corrected);
+      cross = g.append('g').attr('opacity', 0).attr('transform', `translate(${x(c)},${cy})`);
+      cross.append('circle').attr('r', 13).attr('fill','var(--color-panel)').attr('stroke','var(--cds-chart-status-critical)').attr('stroke-width',2);
+      cross.append('text').attr('y', 5).attr('text-anchor','middle').attr('font-size',14).attr('font-weight',700).attr('fill','var(--cds-chart-status-critical)').text('✕');
+      cross.on('pointermove', (ev) => tip.show(ev, fmtT(c) + ' Pacific', ['The agent records the correction']))
+        .on('pointerleave', () => tip.hide());
+      anim.push({t: c, show: () => cross.attr('opacity', 1)});
+    }
+    const count = g.append('text').attr('x', W - mr + 12).attr('y', cy + 5).attr('font-size', 13).attr('fill','var(--color-fg)').attr('font-weight',600).attr('font-variant-numeric','tabular-nums').text('0');
+    g.append('text').attr('x', W - mr + 12).attr('y', cy + 19).attr('font-size', 10).attr('fill','var(--color-fg-muted)').text('notes');
+    anim.push({lane: true, pts, dots, bar, count, x});
+  });
+  const cursor = svg.append('g').attr('opacity', 0);
+  cursor.append('line').attr('y1', top - 8).attr('y2', H - 14).attr('stroke','var(--color-fg)').attr('stroke-width',1.5).attr('opacity',.55);
+  const cLabel = cursor.append('text').attr('y', top - 12).attr('text-anchor','middle').attr('font-size',11).attr('fill','var(--color-fg)');
+
+  function render(now){
+    for (const a of anim){
+      if (a.lane){
+        let n = 0;
+        a.dots.attr('opacity', d => { const on = d <= now; if (on) n++; return on ? .9 : 0; });
+        const last = a.pts.filter(p => p <= now).pop();
+        a.bar.attr('x2', last ? a.x(last) : a.x(a.pts[0])).attr('opacity', last ? .22 : 0);
+        a.count.text(String(n));
+      } else if (a.t <= now) a.show();
+    }
+  }
+  if (mw.reduce || mw.played){ render(x1); applyStep(); return; }
+  render(x0); applyStep();
+  mw.whenSeen(el, () => {
+    mw.played = true;
+    const D = 6500, t0 = performance.now();
+    cursor.attr('opacity', 1);
+    const tick = (now) => {
+      const p = Math.min(1, (now - t0) / D), e = d3.easeCubicInOut(p);
+      const cur = new Date(+x0 + (x1 - x0) * e);
+      cursor.attr('transform', `translate(${x(cur)},0)`); cLabel.text(fmtT(cur));
+      render(cur);
+      if (p < 1) el._raf = requestAnimationFrame(tick);
+      else cursor.transition().duration(500).attr('opacity', 0);
+    };
+    el._raf = requestAnimationFrame(tick);
+  });
+});
+
+document.querySelectorAll('#replay').forEach(b => b.addEventListener('click', () => { mw.played = false; document.querySelectorAll('[data-draw="timeline"]').forEach(e => { e._seen = true; }); dash.draw('timeline'); }));
+
+// chapter observer
+(() => {
+  const steps = document.querySelectorAll('.mw-step');
+  if (!steps.length || !('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver((es) => {
+    for (const e of es) if (e.isIntersecting){ mw.step = +e.target.dataset.step; applyStep(); }
+  }, {root: document, rootMargin: '-45% 0px -45% 0px', threshold: 0});
+  steps.forEach(s => io.observe(s));
+})();
+</script>
+
+<script>
+// warning length, line draws in when seen
+dash.draw('quar-legend', (el) => {
+  const rows = mw.ok('quarantine');
+  el.replaceChildren();
+  if (!rows){ el.textContent = '—'; return; }
+  const agents = [...new Set(rows.map(r => r.agent))].sort();
+  const cols = [mw.css('--mw-sol'), 'var(--cds-chart-muted)'];
+  agents.forEach((a, i) => {
+    const s = document.createElement('span'); const sw = document.createElement('i'); sw.className = 'mw-sw'; sw.style.background = cols[i % 2];
+    s.append(sw, document.createTextNode(a)); el.appendChild(s);
+  });
+});
+dash.draw('quar', (el) => {
+  const rows = mw.ok('quarantine');
+  if (!rows){ mw.failed(el, dash.data('quarantine').status); return; }
+  el.replaceChildren();
+  const W = Math.max(280, el.clientWidth), H = 270, m = {t:14, r:16, b:28, l:38};
+  const data = rows.map(r => ({agent:r.agent, t:mw.parse(r.t), v:+r.chars}));
+  const svg = d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`).attr('role','img').attr('aria-label','Warning length per memory note, falling over time');
+  const x = d3.scaleUtc(d3.extent(data, d => d.t), [m.l, W - m.r]);
+  const y = d3.scaleLinear([0, d3.max(data, d => d.v) * 1.12], [H - m.b, m.t]);
+  svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke','var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('x', m.l - 6).attr('y', d => y(d) + 4).attr('text-anchor','end').attr('font-size',11).attr('fill','var(--color-fg-muted)').text(d3.format(','));
+  const xt = d3.utcHour.every(6).range(x.domain()[0], x.domain()[1]).filter(d => d.getUTCHours() === 12);
+  svg.append('g').selectAll('text').data(xt).join('text').attr('x', x).attr('y', H - 8).attr('text-anchor','middle').attr('font-size',11).attr('fill','var(--color-fg-muted)').text(d3.utcFormat('%a noon'));
+  const cols = [mw.css('--mw-sol'), 'var(--cds-chart-muted)'];
+  const groups = d3.group(data, d => d.agent);
+  const tip = mw.tipFor(el);
+  const fmtT = d3.utcFormat('%a %-I:%M %p');
+  const paths = [];
+  [...groups.keys()].sort().forEach((a, i) => {
+    const pts = groups.get(a);
+    const area = svg.append('path').datum(pts).attr('fill', cols[i % 2]).attr('opacity', i === 0 ? .1 : .06)
+      .attr('d', d3.area().x(d => x(d.t)).y0(H - m.b).y1(d => y(d.v)).curve(d3.curveStepAfter));
+    const p = svg.append('path').datum(pts).attr('fill','none').attr('stroke', cols[i % 2]).attr('stroke-width', i === 0 ? 2.5 : 2).attr('stroke-linejoin','round')
+      .attr('d', d3.line().x(d => x(d.t)).y(d => y(d.v)).curve(d3.curveStepAfter));
+    svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', d => x(d.t)).attr('cy', d => y(d.v)).attr('r', 7).attr('fill','transparent')
+      .on('pointermove', (ev, d) => tip.show(ev, fmtT(d.t) + ' Pacific', [`${d.agent}: ${d3.format(',')(d.v)} characters`]))
+      .on('pointerleave', () => tip.hide());
+    paths.push({p, area});
+  });
+  if (!mw.reduce && !el._done){
+    for (const {p, area} of paths){
+      const L = p.node().getTotalLength(); p.attr('stroke-dasharray', `${L} ${L}`).attr('stroke-dashoffset', L); area.attr('opacity', 0);
+    }
+    mw.whenSeen(el, () => {
+      el._done = true;
+      paths.forEach(({p, area}, i) => {
+        p.transition().delay(i * 250).duration(2200).ease(d3.easeCubicOut).attr('stroke-dashoffset', 0);
+        area.transition().delay(1200 + i * 250).duration(900).attr('opacity', i === 0 ? .1 : .06);
+      });
+    });
+  }
+});
+</script>
+
+<script>
+// habits: butterfly bars
+dash.draw('contrast', (el) => {
+  const rows = mw.ok('contrast');
+  if (!rows){ mw.failed(el, dash.data('contrast').status); return; }
+  el.replaceChildren();
+  const fable = mw.css('--mw-fable'), sol = mw.css('--mw-sol');
+  const W = Math.max(280, el.clientWidth), rowH = 44, m = {t:6, b:6};
+  const H = m.t + rows.length * rowH + m.b, mid = W / 2;
+  const svg = d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`).attr('role','img').attr('aria-label','Mentions per memory note by topic, Team Fable to the left, Team Sol to the right');
+  const max = d3.max(rows, r => Math.max(+r.fable, +r.sol));
+  const w = d3.scaleSqrt([0, max], [0, mid - 46]);
+  svg.append('line').attr('x1', mid).attr('x2', mid).attr('y1', 0).attr('y2', H).attr('stroke','var(--cds-chart-axis)');
+  const tip = mw.tipFor(el);
+  const bars = [];
+  rows.forEach((r, i) => {
+    const y = m.t + i * rowH;
+    svg.append('text').attr('x', mid).attr('y', y + 12).attr('text-anchor','middle').attr('font-size',12).attr('fill','var(--color-fg)').text(r.measure);
+    const a = +r.fable, b = +r.sol;
+    const ra = svg.append('rect').attr('x', mid).attr('y', y + 18).attr('height', 16).attr('width', 0).attr('rx', 3).attr('fill', fable).attr('data-w', w(a)).attr('data-left', 1);
+    const rb = svg.append('rect').attr('x', mid).attr('y', y + 18).attr('height', 16).attr('width', 0).attr('rx', 3).attr('fill', sol).attr('data-w', w(b));
+    const ta = svg.append('text').attr('x', mid - w(a) - 6).attr('y', y + 31).attr('text-anchor','end').attr('font-size',11.5).attr('fill','var(--color-fg-muted)').attr('font-variant-numeric','tabular-nums').text(d3.format('.1f')(a));
+    const tb = svg.append('text').attr('x', mid + w(b) + 6).attr('y', y + 31).attr('font-size',11.5).attr('fill','var(--color-fg-muted)').attr('font-variant-numeric','tabular-nums').text(d3.format('.1f')(b));
+    [ra, rb].forEach((rect, k) => rect.on('pointermove', (ev) => tip.show(ev, r.measure, [`${k ? 'Team Sol' : 'Team Fable'}: ${d3.format('.2f')(k ? b : a)} per note`])).on('pointerleave', () => tip.hide()));
+    bars.push({ra, rb, a: w(a), b: w(b), ta, tb});
+  });
+  const full = () => bars.forEach(o => { o.ra.attr('x', mid - o.a).attr('width', o.a); o.rb.attr('width', o.b); });
+  if (mw.reduce || el._done){ full(); return; }
+  bars.forEach(o => { o.ta.attr('opacity', 0); o.tb.attr('opacity', 0); });
+  mw.whenSeen(el, () => {
+    el._done = true;
+    bars.forEach((o, i) => {
+      o.ra.transition().delay(i * 120).duration(900).ease(d3.easeCubicOut).attr('x', mid - o.a).attr('width', o.a);
+      o.rb.transition().delay(i * 120).duration(900).ease(d3.easeCubicOut).attr('width', o.b);
+      o.ta.transition().delay(600 + i * 120).duration(400).attr('opacity', 1);
+      o.tb.transition().delay(600 + i * 120).duration(400).attr('opacity', 1);
+    });
+  });
+});
+
+// repetition reminders
+dash.draw('anti', (el) => {
+  const rows = mw.ok('antirep');
+  if (!rows){ mw.failed(el, dash.data('antirep').status); return; }
+  el.replaceChildren();
+  const fable = mw.css('--mw-fable'), sol = mw.css('--mw-sol');
+  const W = Math.max(280, el.clientWidth), H = 270, m = {t:18, r:92, b:28, l:30};
+  const days = [...new Map(rows.map(r => [+r.order, r.day])).entries()].sort((a,b) => a[0]-b[0]).map(d => d[1]);
+  const svg = d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`).attr('role','img').attr('aria-label','Anti-repetition reminders per note by day');
+  const x = d3.scalePoint(days, [m.l + 12, W - m.r]);
+  const y = d3.scaleLinear([0, d3.max(rows, r => +r.per_snapshot) * 1.15], [H - m.b, m.t]);
+  svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r + 10).attr('y1', y).attr('y2', y).attr('stroke','var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('x', m.l - 6).attr('y', d => y(d) + 4).attr('text-anchor','end').attr('font-size',11).attr('fill','var(--color-fg-muted)').text(d3.format('.0f'));
+  svg.append('g').selectAll('text').data(days).join('text').attr('x', x).attr('y', H - 8).attr('text-anchor','middle').attr('font-size',11).attr('fill','var(--color-fg-muted)').text(d => d.split(' ')[0]);
+  const teams = d3.group(rows, r => r.team);
+  const tip = mw.tipFor(el);
+  const lines = [], ends = [];
+  [...teams.keys()].sort().forEach((t) => {
+    const pts = teams.get(t).slice().sort((a,b) => +a.order - +b.order);
+    const col = t.includes('Fable') ? fable : sol;
+    const p = svg.append('path').datum(pts).attr('fill','none').attr('stroke', col).attr('stroke-width', 2.5).attr('stroke-linejoin','round').attr('stroke-linecap','round')
+      .attr('d', d3.line().x(d => x(d.day)).y(d => y(+d.per_snapshot)));
+    const c = svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', d => x(d.day)).attr('cy', d => y(+d.per_snapshot)).attr('r', 4.5).attr('fill', col).attr('stroke','var(--color-panel)').attr('stroke-width',2)
+      .on('pointermove', (ev, d) => tip.show(ev, d.day, [`${t}: ${d3.format('.2f')(+d.per_snapshot)} reminders per note`, `${d.snapshots} notes that day`]))
+      .on('pointerleave', () => tip.hide());
+    lines.push({p, c});
+    const last = pts[pts.length - 1];
+    ends.push({t, col, y: y(+last.per_snapshot), x: x(last.day), v: +last.per_snapshot});
+  });
+  ends.sort((a,b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i-1].y < 30) ends[i].y = ends[i-1].y + 30;
+  const labels = ends.map(e => {
+    const g = svg.append('g');
+    g.append('text').attr('x', e.x + 12).attr('y', e.y + 1).attr('font-size',12).attr('font-weight',600).attr('fill', e.col).text(e.t);
+    g.append('text').attr('x', e.x + 12).attr('y', e.y + 15).attr('font-size',12).attr('fill','var(--color-fg-muted)').text(d3.format('.1f')(e.v) + ' per note');
+    return g;
+  });
+  if (mw.reduce || el._done) return;
+  lines.forEach(({p, c}) => { const L = p.node().getTotalLength(); p.attr('stroke-dasharray', `${L} ${L}`).attr('stroke-dashoffset', L); c.attr('opacity', 0); });
+  labels.forEach(g => g.attr('opacity', 0));
+  mw.whenSeen(el, () => {
+    el._done = true;
+    lines.forEach(({p, c}, i) => {
+      p.transition().delay(i * 200).duration(1600).ease(d3.easeCubicOut).attr('stroke-dashoffset', 0);
+      c.transition().delay((d, j) => i * 200 + j * 380).duration(300).attr('opacity', 1);
+    });
+    labels.forEach(g => g.transition().delay(1700).duration(400).attr('opacity', 1));
+  });
+});
+</script>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Memory Scope</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+<style>
+/* Layout: top bar with source + agent filter; three working views (Agents, Reader, Fact tracker) under tabs; reader is a snapshot list beside the memory text. */
+:root{
+  --bg:#f4f5f2; --panel:#ffffff; --ink:#1c2320; --muted:#5d6964; --line:#dbe0dc;
+  --accent:#2f6b5a; --accent-ink:#ffffff; --accent-soft:#e2eee9;
+  --add:#1f7a46; --add-bg:#e4f4ea; --del:#a3352b; --del-bg:#fbe9e6;
+  --warn:#94570f; --warn-soft:#fbf0e1; --hit:#2f6b5a; --miss:#d5dbd7;
+  --spk-l:36%;
+  --f-display:"Fraunces", Georgia, serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111513; --panel:#191f1c; --ink:#e3e9e5; --muted:#98a59f; --line:#2a332f;
+  --accent:#6fb59e; --accent-ink:#0f1a16; --accent-soft:#1e2f29;
+  --add:#7fd3a0; --add-bg:#16291e; --del:#f0968c; --del-bg:#2f1a17;
+  --warn:#e0a85a; --warn-soft:#2c2416; --hit:#6fb59e; --miss:#2e3833; --spk-l:72%; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111513; --panel:#191f1c; --ink:#e3e9e5; --muted:#98a59f; --line:#2a332f;
+  --accent:#6fb59e; --accent-ink:#0f1a16; --accent-soft:#1e2f29;
+  --add:#7fd3a0; --add-bg:#16291e; --del:#f0968c; --del-bg:#2f1a17;
+  --warn:#e0a85a; --warn-soft:#2c2416; --hit:#6fb59e; --miss:#2e3833; --spk-l:72%; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+.page{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px}
+header.top h1{font:600 26px/1.1 var(--f-display);margin:0;letter-spacing:-.01em}
+header.top p{margin:0;color:var(--muted)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+h2.lbl{font:600 11px/1 var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px;min-width:0}
+input[type=text],input[type=password],input[type=number],input[type=date],select{font:13px var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:500 13px var(--f-body);border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 11px;cursor:pointer;white-space:nowrap}
+button:hover:not(:disabled){border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+.grid-src{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;align-items:end}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.hint{font-size:12px;color:var(--muted);margin:0}
+code,.mono{font-family:var(--f-mono);font-size:12px}
+.status{font-size:12px;padding:8px 10px;border-radius:6px;background:var(--accent-soft)}
+.status.err{background:var(--warn-soft);color:var(--warn)}
+.prog{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.prog div{height:100%;background:var(--accent);width:0;transition:width .2s}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:9px 12px;color:var(--muted)}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+table.agents{width:100%;border-collapse:collapse;font-size:13px}
+table.agents th{text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line)}
+table.agents td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.agents tr.ag:hover td{background:var(--bg);cursor:pointer}
+table.agents td.num{font-variant-numeric:tabular-nums;text-align:right}
+.scroll-x{overflow-x:auto}
+.name{font-weight:600}
+.reader{display:grid;grid-template-columns:260px minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:860px){.reader{grid-template-columns:1fr}}
+.snaplist{max-height:72vh;overflow:auto;display:flex;flex-direction:column}
+.snap{display:flex;justify-content:space-between;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12px;font-variant-numeric:tabular-nums}
+.snap:hover{background:var(--bg)}
+.snap.sel{background:var(--accent-soft);font-weight:600}
+.snap .sz{color:var(--muted)}
+.snap.day{background:var(--bg);color:var(--muted);font-weight:600;cursor:default;position:sticky;top:0}
+.doc{font-size:14px;line-height:1.6;overflow-wrap:anywhere;min-width:0}
+.doc h3,.doc h4,.doc h5{font-family:var(--f-body);margin:14px 0 4px;line-height:1.3}
+.doc h3{font-size:18px}.doc h4{font-size:15px}.doc h5{font-size:14px}
+.doc p{margin:2px 0}
+.doc .li{padding-left:16px;text-indent:-12px;margin:1px 0}
+.doc pre{background:var(--bg);border-radius:6px;padding:8px 10px;overflow-x:auto;font:12px/1.5 var(--f-mono);margin:6px 0;white-space:pre-wrap}
+.doc code{background:var(--bg);padding:0 3px;border-radius:3px}
+.doc .add{background:var(--add-bg);color:var(--add);border-left:3px solid var(--add);padding-left:6px}
+.doc .del{background:var(--del-bg);color:var(--del);border-left:3px solid var(--del);padding-left:6px;text-decoration:line-through;text-decoration-thickness:1px}
+mark{background:var(--warn-soft);color:var(--warn);border-radius:2px;padding:0 1px}
+.meta-line{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12px;color:var(--muted)}
+.pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.pill.add{color:var(--add);border-color:var(--add)}
+.pill.del{color:var(--del);border-color:var(--del)}
+.lanes{display:flex;flex-direction:column;gap:10px}
+.lane-h{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.lane svg{display:block;width:100%;height:28px}
+.variants{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto}
+.var{border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13px}
+.var .vm{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-bottom:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bg);cursor:pointer;color:var(--ink)}
+.cases{display:flex;flex-direction:column;gap:8px}
+.case{border-left:3px solid var(--accent);padding:4px 10px;font-size:13px}
+.case .vm{font-size:11px;color:var(--muted)}
+.empty{padding:36px 20px;text-align:center;color:var(--muted)}
+.empty h3{font:600 20px var(--f-display);color:var(--ink);margin:0 0 6px}
+.two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:980px){.two{grid-template-columns:1fr}}
+.spark svg{display:block;width:100%;height:70px}
+.axis{fill:var(--muted);font:10px var(--f-body)}
+@media (prefers-reduced-motion:reduce){.prog div{transition:none}}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="top">
+  <h1>Memory Scope</h1>
+  <p>Read how AI Village agents rewrite their own memories, snapshot by snapshot.</p>
+</header>
+
+<section class="box" aria-labelledby="h-src">
+  <h2 class="lbl" id="h-src">Data source</h2>
+  <div class="row" style="margin-bottom:10px">
+    <div class="seg" role="group" aria-label="Source">
+      <button id="m-hf" aria-pressed="true">Hugging Face (stream)</button>
+      <button id="m-file" aria-pressed="false">Local file</button>
+    </div>
+  </div>
+  <div id="src-hf" class="grid-src">
+    <label for="tok">Hugging Face read token
+      <input id="tok" type="password" placeholder="hf_…" autocomplete="off">
+    </label>
+    <label for="ds">Dataset
+      <input id="ds" type="text" value="aidigestorg/ai-village">
+    </label>
+    <label for="cfg">Table
+      <input id="cfg" type="text" value="agent_memories">
+    </label>
+    <div class="row">
+      <label class="row" for="remember" style="flex-direction:row;color:var(--ink)"><input id="remember" type="checkbox"> Remember token</label>
+      <button id="connect" class="primary">Connect</button>
+    </div>
+  </div>
+  <div id="src-file" class="grid-src" hidden>
+    <label for="file">Memories file (<code>agent_memories.jsonl.gz</code>)
+      <input id="file" type="file" accept=".jsonl,.gz,.json">
+    </label>
+    <label for="file-agents">Optional: <code>agents.jsonl.gz</code> for agent names
+      <input id="file-agents" type="file" accept=".jsonl,.gz,.json">
+    </label>
+  </div>
+  <p class="hint" id="src-hint" style="margin-top:10px">Streams only the rows you open, using byte-range reads of the Parquet copy Hugging Face keeps of this table. Nothing large is downloaded. Your token is sent only to Hugging Face and never leaves this browser otherwise.</p>
+  <div class="prog" id="prog" hidden style="margin-top:10px"><div></div></div>
+  <div class="status" id="status" hidden style="margin-top:10px"></div>
+</section>
+
+<section class="box" aria-labelledby="h-scope" id="scope" hidden>
+  <h2 class="lbl" id="h-scope">Scope</h2>
+  <div class="grid-src">
+    <label for="from">From (UTC)<input id="from" type="date"></label>
+    <label for="to">To (UTC)<input id="to" type="date"></label>
+    <label for="agent-pick">Agent<select id="agent-pick"></select></label>
+  </div>
+</section>
+
+<nav class="tabs" role="tablist" id="tabs" hidden>
+  <button role="tab" id="t-agents" aria-selected="true" aria-controls="v-agents">Agents</button>
+  <button role="tab" id="t-reader" aria-selected="false" aria-controls="v-reader">Reader</button>
+  <button role="tab" id="t-tracker" aria-selected="false" aria-controls="v-tracker">Fact tracker</button>
+  <button role="tab" id="t-cases" aria-selected="false" aria-controls="v-cases">Cases <span id="case-n" class="pill">0</span></button>
+</nav>
+
+<div id="v-empty" class="box empty">
+  <h3>Connect to load the memory index</h3>
+  <p>Paste a Hugging Face read token and press Connect, or switch to Local file and open <code>agent_memories.jsonl.gz</code>.</p>
+</div>
+
+<section id="v-agents" class="box" role="tabpanel" hidden>
+  <h2 class="lbl">Agents and memory activity</h2>
+  <p class="hint" style="margin-bottom:8px">Each tick is one saved memory snapshot. Click an agent to read its memories.</p>
+  <div class="scroll-x"><table class="agents" id="agents-table"></table></div>
+</section>
+
+<section id="v-reader" role="tabpanel" hidden>
+  <div class="reader">
+    <div class="box" style="padding:0">
+      <div style="padding:10px;border-bottom:1px solid var(--line)" class="row">
+        <button id="load-all-agent" title="Fetch every snapshot of this agent to show sizes">Load sizes</button>
+        <span class="hint" id="snap-count"></span>
+      </div>
+      <div class="snaplist" id="snaplist"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div class="box spark" id="spark-box" hidden><h2 class="lbl">Memory size over time (loaded snapshots)</h2><div id="spark"></div></div>
+      <div class="box" style="display:flex;flex-direction:column;gap:10px">
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <button id="prev" aria-label="Previous snapshot">← Earlier</button>
+            <button id="next" aria-label="Next snapshot">Later →</button>
+            <div class="seg" role="group" aria-label="View">
+              <button id="view-full" aria-pressed="true">Full memory</button>
+              <button id="view-diff" aria-pressed="false">Changes vs previous</button>
+            </div>
+          </div>
+          <div class="row" style="flex:1 1 220px;min-width:0">
+            <input id="find" type="text" placeholder="Highlight text or /regex/" aria-label="Highlight in memory" style="flex:1">
+            <button id="cite" title="Select text in the memory first">Save selection as case</button>
+          </div>
+        </div>
+        <div class="meta-line" id="snap-meta"></div>
+        <div class="doc" id="doc"><p class="hint">Pick a snapshot.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="v-tracker" role="tabpanel" hidden>
+  <div class="box" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+    <h2 class="lbl" style="margin:0">Track a claim across snapshots</h2>
+    <p class="hint">Find when a phrase first enters an agent's memory, how its wording changes, and when it disappears. Uses the scope above.</p>
+    <div class="grid-src">
+      <label for="tq">Text or /regex/<input id="tq" type="text" placeholder="e.g. /was WRONG|incorrect/"></label>
+      <label for="tscope">Agents<select id="tscope"><option value="one">Selected agent only</option><option value="all">All agents in scope</option></select></label>
+      <label for="tmax">Max snapshots to scan<input id="tmax" type="number" value="600" min="20" step="20"></label>
+      <div class="row"><button id="trun" class="primary">Track</button><button id="tstop" hidden>Stop</button></div>
+    </div>
+    <div class="chips" id="tpresets"></div>
+  </div>
+  <div class="two">
+    <div class="box"><h2 class="lbl">When it appears</h2><div class="lanes" id="lanes"><p class="hint">Run a search to see a lane per agent.</p></div></div>
+    <div class="box"><h2 class="lbl">How the wording changes</h2><div class="variants" id="variants"><p class="hint">Distinct matching lines appear here, oldest first.</p></div></div>
+  </div>
+</section>
+
+<section id="v-cases" class="box" role="tabpanel" hidden>
+  <div class="row" style="justify-content:space-between;margin-bottom:10px">
+    <h2 class="lbl" style="margin:0">Saved cases</h2>
+    <div class="row"><button id="copy-cases">Copy all as Markdown</button><button id="clear-cases">Clear</button></div>
+  </div>
+  <div class="cases" id="cases"><p class="hint">Select text in the Reader and press “Save selection as case”, or save a line from the Fact tracker.</p></div>
+  <textarea id="copy-fallback" hidden style="width:100%;height:200px;margin-top:10px;font:12px var(--f-mono)" aria-label="Cases as Markdown"></textarea>
+</section>
+</div>
+
+<script>
+(() => {
+const DS_API = 'https://datasets-server.huggingface.co';
+const LIB = {
+  hyparquet: 'https://cdn.jsdelivr.net/npm/hyparquet@1.29.2/+esm',
+  compressors: 'https://cdn.jsdelivr.net/npm/hyparquet-compressors@1.1.2/+esm'
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = { get(k){try{return localStorage.getItem(k)}catch{return null}}, set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch{}} };
+
+// ---------- state ----------
+const S = {
+  mode:'hf', token:'', dataset:'', config:'',
+  src:null,              // {getContents(keys) -> Promise<void>}
+  idx:[],                // [{k,agent,t,tIso,id,file,row}]
+  agents:new Map(),      // agent_id -> {id,name,model,emoji,keys:[]}
+  content:new Map(),     // k -> string
+  sel:{agent:null, k:null}, view:'full', cases:[], tracking:null
+};
+
+function status(msg, err){ const el=$('status'); el.hidden=!msg; el.textContent=msg||''; el.classList.toggle('err',!!err); }
+function progress(f){ const p=$('prog'); if (f==null){ p.hidden=true; return; } p.hidden=false; p.firstElementChild.style.width=(Math.max(0,Math.min(1,f))*100).toFixed(1)+'%'; }
+function toMs(v){
+  if (v == null || v === '') return NaN;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'bigint') v = Number(v);
+  if (typeof v === 'number'){ if (v > 1e17) return v/1e6; if (v > 1e14) return v/1e3; return v < 1e12 ? v*1000 : v; }
+  const s = String(v).trim().replace(' ','T').replace(/(\.\d{3})\d+/, '$1');
+  return Date.parse(/[zZ]$|[+-]\d\d:?\d\d$/.test(s) ? s : s + 'Z');
+}
+const fmt = ms => isNaN(ms) ? '—' : new Date(ms).toISOString().slice(0,16).replace('T',' ');
+const fmtDay = ms => new Date(ms).toISOString().slice(0,10);
+const kfmt = n => n >= 1000 ? (n/1000).toFixed(n>=10000?0:1)+'k' : String(n);
+function hue(str){ let h=0; for (const c of String(str)) h=(h*31+c.charCodeAt(0))>>>0; return h%360; }
+function compileQuery(q){
+  q = (q||'').trim(); if (!q) return null;
+  const m = q.match(/^\/(.+)\/([gimsuy]*)$/);
+  if (m){ try { return new RegExp(m[1], m[2].includes('i')?m[2]:m[2]+'i'); } catch { return null; } }
+  return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'i');
+}
+async function pool(items, n, fn){
+  let i = 0; const run = async () => { while (i < items.length){ const my = i++; await fn(items[my], my); } };
+  await Promise.all(Array.from({length:Math.min(n, items.length)}, run));
+}
+
+// ---------- agent naming ----------
+const FAM = '(?:Claude|GPT|Gemini|Grok|DeepSeek|Kimi|Qwen|Llama|Mistral|o\\d)';
+const NAME_RX = [
+  new RegExp("I(?:'m| am),? \\**(" + FAM + "[^\\n,;()*]{0,40}?Agent \\d+)"),
+  new RegExp("(?:Me|I),\\s*(" + FAM + "[^\\n,;()*]{0,40}?Agent \\d+)"),
+  new RegExp("\\b(" + FAM + "[^\\n,;()*]{0,40}?Agent \\d+)\\s*\\((?:me|I)\\)"),
+  new RegExp("#[^\\n]*?(?:—|-)\\s*(" + FAM + "[^\\n—]{1,40}?Agent \\d+)"),
+  new RegExp("I(?:'m| am),? \\**(" + FAM + "[\\w.\\-]*(?: [A-Z0-9][\\w.\\-]*){0,3})")
+];
+function inferName(agent){
+  if (agent.name && !agent.inferred) return;
+  const counts = new Map();
+  for (const k of agent.keys){
+    const c = S.content.get(k); if (!c) continue;
+    const head = c.slice(0, 4000);
+    for (const rx of NAME_RX){ const m = head.match(rx); if (m){ const n = m[1].trim().replace(/\s+/g,' '); counts.set(n,(counts.get(n)||0)+1); } }
+  }
+  let best = null, bn = 0; for (const [n,c] of counts) if (c > bn){ best = n; bn = c; }
+  if (best){ agent.name = best; agent.inferred = true; }
+}
+const agentLabel = a => a.name || ('Agent ' + a.id.slice(0,8));
+
+// ---------- index building ----------
+function buildIndex(rows){
+  // rows: [{agent, t, id, file?, row?, content?}]
+  S.idx = []; S.agents = new Map(); S.content = new Map();
+  rows.sort((a,b) => a.t - b.t);
+  rows.forEach((r,k) => {
+    const e = {k, agent:r.agent, t:r.t, id:r.id, file:r.file, row:r.row};
+    S.idx.push(e);
+    if (r.content != null) S.content.set(k, r.content);
+    if (!S.agents.has(r.agent)) S.agents.set(r.agent, {id:r.agent, keys:[], name:'', model:''});
+    S.agents.get(r.agent).keys.push(k);
+  });
+}
+function applyAgentMeta(list){
+  for (const a of list){
+    const id = a.id ?? a.agent_id; if (!id || !S.agents.has(id)) continue;
+    const ag = S.agents.get(id);
+    ag.name = a.name || a.display_name || a.agent_name || ag.name;
+    ag.model = a.model || a.model_name || a.model_string || a.llm || ag.model || '';
+    ag.emoji = a.emoji || '';
+    ag.inferred = false;
+  }
+}
+function afterIndex(){
+  for (const a of S.agents.values()) inferName(a);
+  const ts = S.idx.map(e => e.t).filter(t => !isNaN(t));
+  if (ts.length){ $('from').value = fmtDay(Math.min(...ts)); $('to').value = fmtDay(Math.max(...ts)); }
+  $('scope').hidden = false; $('tabs').hidden = false; $('v-empty').hidden = true;
+  fillAgentPick(); renderAgents(); showTab('agents');
+}
+function inScope(e){
+  const f = $('from').value, t = $('to').value;
+  if (f && e.t < Date.parse(f+'T00:00:00Z')) return false;
+  if (t && e.t >= Date.parse(t+'T00:00:00Z') + 864e5) return false;
+  return true;
+}
+function agentsSorted(){ return [...S.agents.values()].sort((a,b) => agentLabel(a).localeCompare(agentLabel(b))); }
+function fillAgentPick(){
+  const cur = S.sel.agent;
+  $('agent-pick').innerHTML = agentsSorted().map(a => `<option value="${esc(a.id)}"${a.id===cur?' selected':''}>${esc(agentLabel(a))} (${a.keys.length})</option>`).join('');
+  if (!cur && S.agents.size) S.sel.agent = $('agent-pick').value;
+}
+$('agent-pick').onchange = e => { selectAgent(e.target.value); };
+$('from').onchange = $('to').onchange = () => { renderAgents(); if (!$('v-reader').hidden) renderSnapList(); };
+
+// ---------- Agents view ----------
+function renderAgents(){
+  const scoped = S.idx.filter(inScope);
+  const ts = scoped.map(e => e.t);
+  const t0 = Math.min(...ts), t1 = Math.max(...ts), span = Math.max(1, t1 - t0);
+  const W = 420, H = 24;
+  const rows = agentsSorted().map(a => {
+    const ks = a.keys.filter(k => inScope(S.idx[k]));
+    if (!ks.length) return '';
+    const first = S.idx[ks[0]].t, last = S.idx[ks[ks.length-1]].t;
+    const ticks = ks.map(k => { const x = 2 + (S.idx[k].t - t0) / span * (W - 4); return `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="4" y2="${H-4}" stroke="hsl(${hue(a.id)} 50% var(--spk-l))" stroke-opacity=".7" stroke-width="1"/>`; }).join('');
+    return `<tr class="ag" data-a="${esc(a.id)}" tabindex="0">
+      <td><span class="name" style="color:hsl(${hue(a.id)} 55% var(--spk-l))">${esc(a.emoji ? a.emoji+' ' : '')}${esc(agentLabel(a))}</span>${a.inferred?' <span class="hint">(name read from memory)</span>':''}<div class="hint mono">${esc(a.model || a.id)}</div></td>
+      <td class="num">${ks.length.toLocaleString()}</td>
+      <td class="mono">${fmt(first)}</td><td class="mono">${fmt(last)}</td>
+      <td style="min-width:240px"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;display:block" role="img" aria-label="${ks.length} snapshots over time"><rect x="0" y="0" width="${W}" height="${H}" fill="var(--bg)"/>${ticks}</svg></td>
+    </tr>`;
+  }).join('');
+  $('agents-table').innerHTML = `<thead><tr><th>Agent</th><th style="text-align:right">Snapshots</th><th>First (UTC)</th><th>Last (UTC)</th><th>Activity ${isFinite(t0)?`<span class="hint mono">${fmtDay(t0)} → ${fmtDay(t1)}</span>`:''}</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="hint">No snapshots in this date range.</td></tr>'}</tbody>`;
+}
+$('agents-table').addEventListener('click', e => { const tr = e.target.closest('tr[data-a]'); if (tr){ selectAgent(tr.dataset.a); showTab('reader'); } });
+$('agents-table').addEventListener('keydown', e => { if (e.key==='Enter'){ const tr = e.target.closest('tr[data-a]'); if (tr){ selectAgent(tr.dataset.a); showTab('reader'); } } });
+
+// ---------- tabs ----------
+const TABS = ['agents','reader','tracker','cases'];
+function showTab(name){
+  for (const t of TABS){ $('t-'+t).setAttribute('aria-selected', t===name); $('v-'+t).hidden = t !== name; }
+  if (name === 'reader') renderSnapList();
+  if (name === 'cases') renderCases();
+}
+for (const t of TABS) $('t-'+t).onclick = () => showTab(t);
+
+// ---------- Reader ----------
+function agentKeys(){ const a = S.agents.get(S.sel.agent); return a ? a.keys.filter(k => inScope(S.idx[k])) : []; }
+function selectAgent(id){
+  S.sel.agent = id; $('agent-pick').value = id;
+  const ks = agentKeys(); S.sel.k = ks.length ? ks[ks.length-1] : null;
+  renderSnapList(); openSnap(S.sel.k);
+}
+function renderSnapList(){
+  const ks = agentKeys();
+  $('snap-count').textContent = `${ks.length.toLocaleString()} snapshots`;
+  let html = '', lastDay = '';
+  for (let i = ks.length - 1; i >= 0; i--){
+    const e = S.idx[ks[i]], d = fmtDay(e.t);
+    if (d !== lastDay){ html += `<div class="snap day">${d}</div>`; lastDay = d; }
+    const c = S.content.get(e.k);
+    html += `<div class="snap${e.k===S.sel.k?' sel':''}" data-k="${e.k}" tabindex="0"><span>${fmt(e.t).slice(11)} UTC</span><span class="sz">${c!=null ? kfmt(c.length)+' chars' : ''}</span></div>`;
+  }
+  $('snaplist').innerHTML = html || '<p class="hint" style="padding:10px">No snapshots for this agent in range.</p>';
+  renderSpark();
+}
+$('snaplist').addEventListener('click', e => { const s = e.target.closest('.snap[data-k]'); if (s) openSnap(+s.dataset.k); });
+$('snaplist').addEventListener('keydown', e => { if (e.key==='Enter'){ const s = e.target.closest('.snap[data-k]'); if (s) openSnap(+s.dataset.k); } });
+function neighbour(dir){ const ks = agentKeys(); const i = ks.indexOf(S.sel.k); const j = i + dir; return (i >= 0 && j >= 0 && j < ks.length) ? ks[j] : null; }
+$('prev').onclick = () => { const k = neighbour(-1); if (k != null) openSnap(k); };
+$('next').onclick = () => { const k = neighbour(1); if (k != null) openSnap(k); };
+$('view-full').onclick = () => setView('full');
+$('view-diff').onclick = () => setView('diff');
+function setView(v){ S.view = v; $('view-full').setAttribute('aria-pressed', v==='full'); $('view-diff').setAttribute('aria-pressed', v==='diff'); openSnap(S.sel.k); }
+let findT; $('find').oninput = () => { clearTimeout(findT); findT = setTimeout(() => openSnap(S.sel.k), 200); };
+
+let openSeq = 0;
+async function openSnap(k){
+  if (k == null){ $('doc').innerHTML = '<p class="hint">No snapshot selected.</p>'; $('snap-meta').innerHTML=''; return; }
+  const my = ++openSeq;
+  S.sel.k = k;
+  document.querySelectorAll('.snap.sel').forEach(x => x.classList.remove('sel'));
+  const el = document.querySelector(`.snap[data-k="${k}"]`); if (el){ el.classList.add('sel'); el.scrollIntoView({block:'nearest'}); }
+  const prevK = neighbour(-1);
+  const need = [k]; if (S.view === 'diff' && prevK != null) need.push(prevK);
+  if (need.some(x => !S.content.has(x))){
+    $('doc').innerHTML = '<p class="hint">Loading snapshot…</p>';
+    try { await S.src.getContents(need, S.sel.agent); }
+    catch (err){ if (my === openSeq){ $('doc').innerHTML = ''; status(err.message, true); } return; }
+  }
+  if (my !== openSeq) return;
+  const a = S.agents.get(S.sel.agent); if (a && a.inferred !== false) { inferName(a); fillAgentPick(); }
+  const e = S.idx[k], text = S.content.get(k) || '';
+  const prevText = prevK != null ? S.content.get(prevK) : null;
+  let metaHtml = `<span class="mono">${esc(fmt(e.t))} UTC</span><span class="pill">${text.length.toLocaleString()} chars</span>`;
+  if (prevText != null){
+    const d = text.length - prevText.length;
+    metaHtml += `<span class="pill ${d>=0?'add':'del'}">${d>=0?'+':''}${d.toLocaleString()} vs previous</span>`;
+  }
+  metaHtml += `<span class="mono">id ${esc(String(e.id ?? '').slice(0,13))}</span>`;
+  const re = compileQuery($('find').value);
+  if (S.view === 'diff' && prevText != null){
+    const ops = lineDiff(prevText.split('\n'), text.split('\n'));
+    const add = ops.filter(o => o[0]==='+').length, del = ops.filter(o => o[0]==='-').length;
+    metaHtml += `<span class="pill add">+${add} lines</span><span class="pill del">−${del} lines</span>`;
+    $('doc').innerHTML = renderDiff(ops, re);
+  } else {
+    if (S.view === 'diff') metaHtml += '<span class="hint">This is the earliest snapshot in range, so there is nothing to compare.</span>';
+    $('doc').innerHTML = renderMd(text.split('\n'), re);
+  }
+  $('snap-meta').innerHTML = metaHtml;
+  renderSnapList();
+  // prefetch neighbours quietly
+  const pre = [neighbour(-1), neighbour(1)].filter(x => x != null && !S.content.has(x));
+  if (pre.length) S.src.getContents(pre, S.sel.agent).then(() => renderSpark()).catch(() => {});
+}
+
+function inline(s, re){
+  let h = esc(s);
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  if (re){ try { const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags+'g'); h = h.replace(/(<[^>]+>)|([^<]+)/g, (m, tag, txt) => tag ? tag : txt.replace(g, x => `<mark>${x}</mark>`)); } catch {} }
+  return h;
+}
+function renderMd(lines, re, cls){
+  let out = '', inCode = false, code = [];
+  const flush = () => { out += `<pre>${esc(code.join('\n'))}</pre>`; code = []; };
+  for (const raw of lines){
+    if (/^\s*```/.test(raw)){ if (inCode){ flush(); inCode = false; } else inCode = true; continue; }
+    if (inCode){ code.push(raw); continue; }
+    const l = raw;
+    const c = cls ? ` class="${cls}"` : '';
+    let m;
+    if (!l.trim()) { out += cls ? `<p${c}>&nbsp;</p>` : ''; continue; }
+    if ((m = l.match(/^(#{1,4})\s+(.*)/))) { const lv = Math.min(5, m[1].length + 2); out += `<h${lv}${c}>${inline(m[2], re)}</h${lv}>`; continue; }
+    if ((m = l.match(/^(\s*)([-*]|\d+\.)\s+(.*)/))) { const ind = Math.min(6, Math.floor(m[1].length/2)); out += `<p class="li${cls?' '+cls:''}" style="margin-left:${ind*16}px">${m[2].match(/\d/)?esc(m[2])+' ':'• '}${inline(m[3], re)}</p>`; continue; }
+    out += `<p${c}>${inline(l, re)}</p>`;
+  }
+  if (inCode) flush();
+  return out;
+}
+// Line diff: LCS for normal sizes, set-based fallback for very large inputs.
+function lineDiff(a, b){
+  const n = a.length, m = b.length;
+  if (n * m > 9e6){
+    const sa = new Set(a), sb = new Set(b), ops = [];
+    for (const l of a) if (!sb.has(l)) ops.push(['-', l]);
+    for (const l of b) ops.push([sa.has(l) ? '=' : '+', l]);
+    return ops;
+  }
+  let pre = 0; while (pre < n && pre < m && a[pre] === b[pre]) pre++;
+  let suf = 0; while (suf < n - pre && suf < m - pre && a[n-1-suf] === b[m-1-suf]) suf++;
+  const A = a.slice(pre, n - suf), B = b.slice(pre, m - suf), N = A.length, M = B.length;
+  const T = new Uint32Array((N + 1) * (M + 1));
+  for (let i = N - 1; i >= 0; i--) for (let j = M - 1; j >= 0; j--)
+    T[i*(M+1)+j] = A[i] === B[j] ? T[(i+1)*(M+1)+j+1] + 1 : Math.max(T[(i+1)*(M+1)+j], T[i*(M+1)+j+1]);
+  const ops = a.slice(0, pre).map(l => ['=', l]);
+  let i = 0, j = 0;
+  while (i < N && j < M){
+    if (A[i] === B[j]){ ops.push(['=', A[i]]); i++; j++; }
+    else if (T[(i+1)*(M+1)+j] >= T[i*(M+1)+j+1]) ops.push(['-', A[i++]]);
+    else ops.push(['+', B[j++]]);
+  }
+  while (i < N) ops.push(['-', A[i++]]);
+  while (j < M) ops.push(['+', B[j++]]);
+  for (const l of a.slice(n - suf)) ops.push(['=', l]);
+  return ops;
+}
+function renderDiff(ops, re){
+  // show changed lines with 1 line of context; collapse long unchanged runs
+  const keep = new Array(ops.length).fill(false);
+  ops.forEach((o, i) => { if (o[0] !== '='){ for (let d = -1; d <= 1; d++) if (ops[i+d]) keep[i+d] = true; } });
+  let out = '', skipped = 0;
+  ops.forEach((o, i) => {
+    if (!keep[i]){ skipped++; return; }
+    if (skipped){ out += `<p class="hint">· · · ${skipped} unchanged line${skipped>1?'s':''}</p>`; skipped = 0; }
+    out += renderMd([o[1]], re, o[0]==='+' ? 'add' : o[0]==='-' ? 'del' : '');
+  });
+  if (skipped) out += `<p class="hint">· · · ${skipped} unchanged line${skipped>1?'s':''}</p>`;
+  return out || '<p class="hint">No changes from the previous snapshot.</p>';
+}
+function renderSpark(){
+  const ks = agentKeys().filter(k => S.content.has(k));
+  const box = $('spark-box');
+  if (ks.length < 3){ box.hidden = true; return; }
+  box.hidden = false;
+  const W = 600, H = 70, P = 4;
+  const ts = ks.map(k => S.idx[k].t), vs = ks.map(k => S.content.get(k).length);
+  const t0 = Math.min(...ts), t1 = Math.max(...ts), vmax = Math.max(...vs);
+  const x = t => P + (t - t0) / Math.max(1, t1 - t0) * (W - 2*P), y = v => H - 14 - v / vmax * (H - 22);
+  const pts = ks.map((k,i) => `${x(ts[i]).toFixed(1)},${y(vs[i]).toFixed(1)}`).join(' ');
+  const selI = ks.indexOf(S.sel.k);
+  $('spark').innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Memory size of ${ks.length} loaded snapshots">
+    <line x1="${P}" x2="${W-P}" y1="${H-14}" y2="${H-14}" stroke="var(--line)"/>
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+    ${selI>=0?`<circle cx="${x(ts[selI])}" cy="${y(vs[selI])}" r="3.5" fill="var(--accent)"/>`:''}
+    <text class="axis" x="${P}" y="${H-2}">${fmt(t0)}</text><text class="axis" x="${W-P}" y="${H-2}" text-anchor="end">${fmt(t1)}</text>
+    <text class="axis" x="${P}" y="9">${kfmt(vmax)} chars</text></svg>`;
+}
+$('load-all-agent').onclick = async () => {
+  const ks = agentKeys().filter(k => !S.content.has(k));
+  if (!ks.length){ renderSnapList(); return; }
+  try { await fetchWithProgress(ks, `Loading ${ks.length} snapshots for sizes`); renderSnapList(); }
+  catch (err){ status(err.message, true); }
+};
+async function fetchWithProgress(keys, label, isStopped){
+  const CH = 40; let done = 0;
+  keys = [...keys].sort((a,b) => ((S.idx[a].file ?? 0) - (S.idx[b].file ?? 0)) || ((S.idx[a].row ?? a) - (S.idx[b].row ?? b)));
+  // batch keys so each batch stays inside one storage block where possible (avoids re-reading blocks)
+  const batches = []; let cur = [], curG = null;
+  for (const k of keys){
+    const g = S.src.groupKey ? S.src.groupKey(k) : Math.floor(batches.length);
+    if (cur.length && (g !== curG || (!S.src.groupKey && cur.length >= CH))){ batches.push(cur); cur = []; }
+    cur.push(k); curG = g;
+  }
+  if (cur.length) batches.push(cur);
+  for (const part0 of batches){
+    if (isStopped && isStopped()) break;
+    const part = part0.filter(k => !S.content.has(k));
+    if (part.length) await S.src.getContents(part, null, {all:true});
+    done += part0.length;
+    progress(done / keys.length); status(`${label}: ${done.toLocaleString()} / ${keys.length.toLocaleString()}`);
+  }
+  progress(null); status(`${label}: done.`);
+  for (const a of S.agents.values()) if (!a.name || a.inferred) inferName(a);
+  fillAgentPick();
+}
+
+// selection → case
+$('cite').onclick = () => {
+  const sel = String(window.getSelection() || '').trim();
+  if (!sel){ status('Select some text in the memory first, then save it as a case.', true); return; }
+  addCase(S.sel.k, sel);
+};
+function addCase(k, text){
+  const e = S.idx[k], a = S.agents.get(e.agent);
+  S.cases.push({agent:agentLabel(a), model:a.model, t:e.t, id:e.id, text});
+  $('case-n').textContent = S.cases.length; status(`Saved case ${S.cases.length}.`);
+}
+function casesMd(){
+  return S.cases.map((c,i) => `**Case ${i+1}** · ${c.agent}${c.model?` (${c.model})`:''} · memory snapshot ${fmt(c.t)} UTC · id ${c.id ?? '—'}\n\n> ${c.text.replace(/\n/g,'\n> ')}`).join('\n\n---\n\n');
+}
+function renderCases(){
+  $('cases').innerHTML = S.cases.length ? S.cases.map((c,i) => `<div class="case"><div class="vm">Case ${i+1} · ${esc(c.agent)} · ${esc(fmt(c.t))} UTC</div>${esc(c.text.length>600?c.text.slice(0,600)+'…':c.text)}</div>`).join('') : '<p class="hint">Select text in the Reader and press “Save selection as case”, or save a line from the Fact tracker.</p>';
+}
+$('copy-cases').onclick = async () => {
+  const md = casesMd(); const b = $('copy-cases'); const ta = $('copy-fallback');
+  try { await navigator.clipboard.writeText(md); b.textContent = 'Copied'; ta.hidden = true; }
+  catch { ta.value = md; ta.hidden = false; ta.select(); b.textContent = 'Select and copy below'; }
+  setTimeout(() => b.textContent = 'Copy all as Markdown', 2000);
+};
+$('clear-cases').onclick = () => { S.cases = []; $('case-n').textContent = '0'; renderCases(); };
+
+// ---------- Fact tracker ----------
+const PRESETS = [
+  ['Self-corrections', '/(old|earlier|previous) (memory|note).{0,60}(wrong|incorrect)|was WRONG|was wrong/'],
+  ['Anti-repetition rules', "/re-?announce|don't repeat|do not repeat|never repeat|already (announced|told|reported)/"],
+  ['Hard rules', '/^\\s*[-*]?\\s*\\**(never|always|do not|must)\\b/'],
+  ['Humans', '/\\b(adam|george|shoshannah|zak|viewers?|judges?|organi[sz]ers?)\\b/'],
+  ['Other team / rivals', '/rival|compet|other team|recon/'],
+  ['Unable to sense', '/no audio|cannot hear|can\'t hear|screenshots? (do not|don\'t) (show|expose)|FPS/'],
+  ['Feelings', '/\\b(frustrat\\w*|excited|proud|worried|anxious|relieved|happy)\\b/'],
+];
+$('tpresets').innerHTML = PRESETS.map(([l,q]) => `<button class="chip" data-q="${esc(q)}">${esc(l)}</button>`).join('');
+$('tpresets').onclick = e => { const b = e.target.closest('[data-q]'); if (b){ $('tq').value = b.dataset.q; runTracker(); } };
+$('tq').addEventListener('keydown', e => { if (e.key === 'Enter') runTracker(); });
+$('trun').onclick = () => runTracker();
+$('tstop').onclick = () => { if (S.tracking) S.tracking.stop = true; };
+
+async function runTracker(){
+  const re = compileQuery($('tq').value);
+  if (!re){ status('Type some text or a valid /regex/ to track.', true); return; }
+  const lineRe = new RegExp(re.source, re.flags.replace('g','') + (re.flags.includes('m')?'':'m'));
+  const scopeAll = $('tscope').value === 'all';
+  const max = Math.max(20, +$('tmax').value || 600);
+  let keys = scopeAll ? S.idx.filter(inScope).map(e => e.k) : agentKeys();
+  let note = '';
+  if (keys.length > max){
+    const step = keys.length / max; keys = Array.from({length:max}, (_,i) => keys[Math.floor(i*step)]);
+    note = ` Sampled ${max} evenly spaced snapshots; raise the limit for full coverage.`;
+  }
+  const job = {stop:false}; S.tracking = job;
+  $('trun').disabled = true; $('tstop').hidden = false;
+  try { await fetchWithProgress(keys, 'Scanning snapshots', () => job.stop); }
+  catch (err){ status(err.message, true); }
+  $('trun').disabled = false; $('tstop').hidden = true; S.tracking = null;
+  const loaded = keys.filter(k => S.content.has(k));
+  // per-agent lanes
+  const byAgent = new Map();
+  for (const k of loaded){ const e = S.idx[k]; if (!byAgent.has(e.agent)) byAgent.set(e.agent, []); byAgent.get(e.agent).push(k); }
+  const ts = loaded.map(k => S.idx[k].t), t0 = Math.min(...ts), t1 = Math.max(...ts);
+  const variants = new Map();
+  let lanes = '';
+  const W = 600, H = 28;
+  for (const a of agentsSorted()){
+    const ks = byAgent.get(a.id); if (!ks) continue;
+    let hits = 0, first = null, last = null, marks = '';
+    for (const k of ks){
+      const text = S.content.get(k);
+      const lines = text.split('\n').filter(l => lineRe.test(l));
+      const hit = lines.length > 0, e = S.idx[k];
+      if (hit){ hits++; first ??= e.t; last = e.t;
+        for (const l of lines){ const norm = l.trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').slice(0,140); const v = variants.get(a.id+'|'+norm);
+          if (v){ v.n++; v.last = e.t; } else variants.set(a.id+'|'+norm, {agent:a, text:l.trim(), first:e.t, last:e.t, n:1, k}); } }
+      const x = 3 + (e.t - t0) / Math.max(1, t1 - t0) * (W - 6);
+      marks += `<line data-k="${k}" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${hit?3:10}" y2="${hit?H-3:H-10}" stroke="${hit?'var(--hit)':'var(--miss)'}" stroke-width="${hit?2:1}"><title>${fmt(e.t)} UTC${hit?' · match':''}</title></line>`;
+    }
+    lanes += `<div class="lane"><div class="lane-h"><span class="name" style="color:hsl(${hue(a.id)} 55% var(--spk-l))">${esc(agentLabel(a))}</span><span class="hint">${hits} of ${ks.length} snapshots${hits?` · first ${fmt(first)} · last ${fmt(last)}`:''}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${hits} matching snapshots of ${ks.length}" style="cursor:pointer"><rect width="${W}" height="${H}" fill="var(--bg)"/>${marks}</svg></div>`;
+  }
+  $('lanes').innerHTML = (lanes || '<p class="hint">No snapshots loaded.</p>') + (isFinite(t0) ? `<div class="lane-h hint mono"><span>${fmt(t0)}</span><span>${fmt(t1)}</span></div>` : '');
+  const vs = [...variants.values()].sort((a,b) => a.first - b.first);
+  $('variants').innerHTML = vs.length ? vs.slice(0, 400).map((v,i) => `<div class="var"><div class="vm"><span style="color:hsl(${hue(v.agent.id)} 55% var(--spk-l))">${esc(agentLabel(v.agent))}</span> · ${fmt(v.first)} → ${fmt(v.last)} · in ${v.n} snapshot${v.n>1?'s':''}</div>${inline(v.text.length>500?v.text.slice(0,500)+'…':v.text, re)}<div class="row" style="margin-top:6px"><button data-open="${v.k}">Open snapshot</button><button data-case="${i}">Save as case</button></div></div>`).join('') + (vs.length > 400 ? `<p class="hint">Showing the first 400 of ${vs.length} variants.</p>` : '') : '<p class="hint">No matching lines.</p>';
+  $('variants').dataset.cache = '';
+  S._variants = vs;
+  const total = [...byAgent.values()].reduce((s,x) => s + x.length, 0);
+  status(`Scanned ${total.toLocaleString()} snapshots; ${vs.length} distinct matching lines.${note}`);
+}
+$('lanes').addEventListener('click', e => { const l = e.target.closest('line[data-k]'); if (l){ const k = +l.dataset.k; S.sel.agent = S.idx[k].agent; $('agent-pick').value = S.sel.agent; showTab('reader'); openSnap(k); } });
+$('variants').addEventListener('click', e => {
+  const o = e.target.closest('[data-open]'); if (o){ const k = +o.dataset.open; S.sel.agent = S.idx[k].agent; $('agent-pick').value = S.sel.agent; showTab('reader'); openSnap(k); return; }
+  const c = e.target.closest('[data-case]'); if (c){ const v = S._variants[+c.dataset.case]; addCase(v.k, v.text); }
+});
+
+// ---------- Local file source ----------
+// ---------- gzip-safe text reading (handles multi-part .gz files) ----------
+let pakoP = null;
+function loadPako(){
+  if (window.pako) return Promise.resolve(window.pako);
+  if (!pakoP) pakoP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js';
+    s.onload = () => window.pako ? res(window.pako) : rej(new Error('pako missing'));
+    s.onerror = () => rej(new Error('Could not load the unzip library'));
+    document.head.appendChild(s);
+  });
+  return pakoP;
+}
+async function* textChunks(file){
+  const gz = /\.gz$/i.test(file.name);
+  const reader = file.stream().getReader();
+  if (!gz){
+    const dec = new TextDecoder();
+    for (;;){ const {value, done} = await reader.read(); if (done) break; yield dec.decode(value, {stream:true}); }
+    const tail = dec.decode(); if (tail) yield tail; return;
+  }
+  let pako = null; try { pako = await loadPako(); } catch {}
+  if (pako){
+    const inf = new pako.Inflate({to:'string'}); let out = [];
+    inf.onData = c => out.push(c);
+    for (;;){
+      const {value, done} = await reader.read();
+      inf.push(done ? new Uint8Array(0) : value, done);
+      if (inf.err) throw new Error('This .gz file looks damaged (' + (inf.msg || inf.err) + ').');
+      if (out.length){ const s = out.join(''); out = []; yield s; }
+      if (done) break;
+    }
+    return;
+  }
+  if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot unzip .gz files. Use a recent Chrome, Edge, Firefox or Safari.');
+  reader.releaseLock();
+  const r2 = file.stream().pipeThrough(new DecompressionStream('gzip')).pipeThrough(new TextDecoderStream()).getReader();
+  for (;;){ const {value, done} = await r2.read(); if (done) break; yield value; }
+}
+async function readJsonl(file, onRow){
+  if (/\.json(\.gz)?$/i.test(file.name)){
+    let t = ''; for await (const c of textChunks(file)) t += c;
+    const data = JSON.parse(t);
+    (Array.isArray(data) ? data : Object.values(data).find(Array.isArray) || []).forEach(onRow); return;
+  }
+  let buf = '', n = 0;
+  for await (const value of textChunks(file)){
+    buf += value; let nl;
+    while ((nl = buf.indexOf('\n')) >= 0){ const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (line.trim()){ try { onRow(JSON.parse(line)); n++; } catch {} } }
+    status(`Read ${n.toLocaleString()} rows…`);
+  }
+  if (buf.trim()){ try { onRow(JSON.parse(buf)); } catch {} }
+}
+let localAgents = null;
+$('file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  status(`Reading ${f.name}…`);
+  try {
+    const rows = [];
+    await readJsonl(f, r => rows.push({agent:String(r.agent_id ?? r.agent ?? 'unknown'), t:toMs(r.created_at ?? r.timestamp), id:r.id, content:typeof r.content === 'string' ? r.content : JSON.stringify(r.content)}));
+    buildIndex(rows);
+    S.src = { async getContents(){ /* all in memory */ } };
+    if (localAgents) applyAgentMeta(localAgents);
+    afterIndex();
+    status(`Loaded ${rows.length.toLocaleString()} snapshots from ${S.agents.size} agents.`);
+  } catch (err){ status(`Could not read ${f.name}: ${err.message}`, true); }
+};
+$('file-agents').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { localAgents = []; await readJsonl(f, r => localAgents.push(r)); if (S.agents.size){ applyAgentMeta(localAgents); fillAgentPick(); renderAgents(); } status(`Loaded ${localAgents.length} agent records.`); }
+  catch (err){ status(`Could not read ${f.name}: ${err.message}`, true); }
+};
+
+// ---------- Hugging Face source (Parquet byte ranges) ----------
+$('m-hf').onclick = () => setMode('hf'); $('m-file').onclick = () => setMode('file');
+function setMode(m){
+  S.mode = m; $('m-hf').setAttribute('aria-pressed', m==='hf'); $('m-file').setAttribute('aria-pressed', m==='file');
+  $('src-hf').hidden = m !== 'hf'; $('src-file').hidden = m !== 'file';
+  $('src-hint').textContent = m === 'hf'
+    ? 'Streams only the rows you open, using byte-range reads of the Parquet copy Hugging Face keeps of this table. Nothing large is downloaded. Your token is sent only to Hugging Face and never leaves this browser otherwise.'
+    : 'The file is read here in your browser and never uploaded.';
+}
+const saved = store.get('ms-hf-token'); if (saved){ $('tok').value = saved; $('remember').checked = true; }
+$('remember').onchange = e => store.set('ms-hf-token', e.target.checked ? $('tok').value.trim() : null);
+$('tok').oninput = e => { if ($('remember').checked) store.set('ms-hf-token', e.target.value.trim()); };
+
+async function api(path, params){
+  const headers = S.token ? {Authorization:'Bearer ' + S.token} : {};
+  let r;
+  try { r = await fetch(DS_API + path + '?' + new URLSearchParams(params), {headers}); }
+  catch { throw new Error('Could not reach Hugging Face. Open this file in Chrome, Edge or Firefox while online.'); }
+  if (!r.ok){
+    let d = ''; try { d = (await r.json()).error || ''; } catch {}
+    if ([401,403,404].includes(r.status)) throw new Error(`Hugging Face refused access (${r.status}). Check that the token is valid and your account is approved for this dataset. ${d}`);
+    throw new Error(`Hugging Face error ${r.status}. ${d}`);
+  }
+  return r.json();
+}
+let HP = null;
+async function libs(){
+  if (HP) return HP;
+  status('Loading the Parquet reader…');
+  try {
+    const [h, c] = await Promise.all([import(LIB.hyparquet), import(LIB.compressors)]);
+    HP = {h, compressors:c.compressors};
+  } catch { throw new Error('Could not load the Parquet reader library from jsDelivr. Check your connection, or use Local file mode.'); }
+  return HP;
+}
+
+$('connect').onclick = async () => {
+  S.token = $('tok').value.trim(); S.dataset = $('ds').value.trim(); S.config = $('cfg').value.trim();
+  if (!S.token){ status('Paste a Hugging Face read token first (huggingface.co/settings/tokens).', true); return; }
+  $('connect').disabled = true;
+  try { await connectHF(); }
+  catch (err){ status(err.message, true); progress(null); }
+  $('connect').disabled = false;
+};
+
+async function connectHF(){
+  const {h, compressors} = await libs();
+  status('Finding the Parquet files for this table…');
+  const pq = await api('/parquet', {dataset:S.dataset, config:S.config});
+  const files = (pq.parquet_files || []).filter(f => f.config === S.config);
+  if (!files.length) throw new Error(`Hugging Face has no Parquet copy of “${S.config}”. The dataset viewer may be off for this dataset; use Local file mode instead.`);
+  const partial = pq.partial || files.some(f => /partial/.test(f.split || '') || /partial/.test(f.url || ''));
+  const headers = {Authorization:'Bearer ' + S.token};
+  const opened = [];
+  for (const [fi, f] of files.entries()){
+    status(`Reading file layout ${fi+1} of ${files.length}…`); progress(fi / files.length / 2);
+    const buf = h.cachedAsyncBuffer(await h.asyncBufferFromUrl({url:f.url, byteLength:f.size, requestInit:{headers}}));
+    const meta = await h.parquetMetadataAsync(buf);
+    const cols = meta.schema.map(s => s.name);
+    const groups = []; let start = 0;
+    for (const rg of meta.row_groups){ const n = Number(rg.num_rows); groups.push({start, end:start+n}); start += n; }
+    opened.push({fi, buf, meta, cols, groups, rows:start});
+  }
+  const need = ['agent_id','created_at','content'];
+  const missing = need.filter(c => !opened[0].cols.includes(c));
+  if (missing.length) throw new Error(`This table has no ${missing.join(', ')} column. Columns found: ${opened[0].cols.slice(1).join(', ')}.`);
+  const idCol = opened[0].cols.includes('id') ? ['id'] : [];
+  const totalRows = opened.reduce((s,o) => s + o.rows, 0);
+  const rows = []; let done = 0;
+  for (const o of opened){
+    for (const g of o.groups){
+      const part = await h.parquetReadObjects({file:o.buf, metadata:o.meta, columns:['agent_id','created_at', ...idCol], rowStart:g.start, rowEnd:g.end, compressors});
+      part.forEach((r,i) => rows.push({agent:String(r.agent_id), t:toMs(r.created_at), id:r.id, file:o.fi, row:g.start + i}));
+      done += g.end - g.start;
+      progress(0.5 + done / totalRows / 2); status(`Indexing snapshots: ${done.toLocaleString()} / ${totalRows.toLocaleString()}`);
+    }
+  }
+  buildIndex(rows);
+  // content fetcher: read the needed row groups' content column, cache rows we asked for plus same-agent rows
+  const groupOf = (o, row) => o.groups.findIndex(g => row >= g.start && row < g.end);
+  const rowKey = new Map(); for (const e of S.idx) rowKey.set(e.file + ':' + e.row, e.k);
+  const pending = new Map();
+  S.src = {
+    groupKey(k){ const e = S.idx[k]; return e.file + ':' + groupOf(opened[e.file], e.row); },
+    async getContents(keys, preferAgent, opts = {}){
+      const want = keys.filter(k => !S.content.has(k));
+      const byGroup = new Map();
+      for (const k of want){ const e = S.idx[k], o = opened[e.file], gi = groupOf(o, e.row); const key = e.file+':'+gi; if (!byGroup.has(key)) byGroup.set(key, {o, gi, ks:[]}); byGroup.get(key).ks.push(k); }
+      await pool([...byGroup.values()], 3, async ({o, gi, ks}) => {
+        const g = o.groups[gi];
+        const rowsWanted = ks.map(k => S.idx[k].row);
+        let lo = Math.min(...rowsWanted), hi = Math.max(...rowsWanted) + 1;
+        const pkey = `${o.fi}:${lo}:${hi}`;
+        if (!pending.has(pkey)) pending.set(pkey, h.parquetReadObjects({file:o.buf, metadata:o.meta, columns:['agent_id','content'], rowStart:lo, rowEnd:hi, compressors}).finally(() => pending.delete(pkey)));
+        const part = await pending.get(pkey);
+        part.forEach((r, i) => {
+          const k = rowKey.get(o.fi + ':' + (lo + i)); if (k == null) return;
+          if (opts.all || ks.includes(k) || (preferAgent && String(r.agent_id) === preferAgent)) S.content.set(k, typeof r.content === 'string' ? r.content : JSON.stringify(r.content));
+        });
+      });
+    }
+  };
+  // agent names from the agents table, best effort
+  try {
+    const j = await api('/rows', {dataset:S.dataset, config:'agents', split:'train', offset:0, length:100});
+    applyAgentMeta((j.rows || []).map(x => x.row));
+  } catch {}
+  progress(null);
+  afterIndex();
+  status(`Indexed ${rows.length.toLocaleString()} snapshots from ${S.agents.size} agents. Memory text loads as you open snapshots.${partial ? ' Note: Hugging Face only converted part of this table to Parquet, so the newest snapshots may be missing.' : ''}`);
+}
+})();
+</script>
+</body>
+</html>
